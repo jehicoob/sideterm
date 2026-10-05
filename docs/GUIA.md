@@ -12,7 +12,7 @@ No ejecutes `View: Reset View Locations`, no muevas la Terminal nativa y no vuel
 
 ## Qué se corrigió
 
-En 0.1.1 faltaban los manejadores de arrastre. Esta versión agrega una ruta explícita:
+En 0.1.1 faltaban los manejadores de arrastre. Esta versión agrega una ruta explícita **si el evento llega a SideTerm**:
 
 **Archivo soltado → datos del arrastre → ruta accesible en WSL/Linux → texto entre comillas → terminal de destino.**
 
@@ -22,9 +22,11 @@ La ruta se inserta como texto, con comillas y escape de apóstrofes para bash/zs
 
 ## Arrastrar desde el Explorador de VS Code
 
-Arrastra el archivo o carpeta desde el árbol del proyecto y suéltalo **dentro del área de terminal de SideTerm**, no en la cabecera de la barra lateral que maneja VS Code. También se aceptan las rutas de pestañas de archivos guardados. Abre la pestaña de terminal de destino antes de soltar.
+**Limitación observada:** en VS Code 1.140.0 instalado en Windows con workspace WSL2, al arrastrar un archivo desde el Explorador de VS Code hacia SideTerm, la webview no recibe `dragenter`, `dragover` ni `drop`. Se confirmó en las herramientas de desarrollo dentro de SideTerm; al arrastrar hacia la vista independiente de OpenCode sí se reciben eventos. VS Code desactiva temporalmente los eventos de puntero del iframe de la webview durante arrastres iniciados en la ventana ([código de VS Code 1.140.0](https://github.com/microsoft/vscode/blob/1.140.0/src/vs/workbench/contrib/webview/browser/webviewElement.ts)). Por ello, los manejadores de SideTerm no pueden insertar esa ruta en este caso; pulsar Shift no cambia el resultado. No se ha comprobado este comportamiento con archivos arrastrados desde el escritorio Windows ni en todas las versiones de VS Code.
 
-Con varias selecciones se insertan varias rutas, separadas por espacios, sin combinarlas con los distintos formatos duplicados del mismo evento. Máximo: **16 archivos o carpetas por arrastre**.
+Como alternativa para un archivo del proyecto, escribe o pega manualmente su ruta accesible desde WSL en la terminal. El arrastre directo desde el Explorador de VS Code queda pendiente de una solución que no dependa del evento `drop` de esta webview.
+
+Cuando se recibe un evento de arrastre válido con varias selecciones, se insertan varias rutas, separadas por espacios, sin combinar los distintos formatos duplicados del mismo evento. Máximo: **16 archivos o carpetas por arrastre**.
 
 Ejemplo de texto insertado:
 
@@ -43,9 +45,9 @@ Hay dos casos:
 | Una ruta absoluta o URI accesible | Se convierte al formato WSL cuando hace falta, se comprueba su existencia y se inserta la ruta del original. |
 | Un objeto de archivo con nombre y bytes, pero sin ruta original | Se pide permiso para copiar **solo lo arrastrado** a una carpeta temporal privada de WSL/Linux. Se inserta la ruta de la copia. Cancelar no inserta nada. |
 
-La conversión de unidades Windows invoca `wslpath -u` con argumentos separados, sin un shell y sin asumir que todas las instalaciones montan C: en `/mnt/c`. Las rutas `\\wsl.localhost\<distro>\...` y `\\wsl$\<distro>\...` solo se convierten directamente cuando pertenecen a la distribución actual. Se rechazan otros hosts remotos en lugar de reinterpretarlos como locales.
+Si un arrastre externo llega a SideTerm, la conversión de unidades Windows invoca `wslpath -u` con argumentos separados, sin un shell y sin asumir que todas las instalaciones montan C: en `/mnt/c`. Las rutas `\\wsl.localhost\<distro>\...` y `\\wsl$\<distro>\...` solo se convierten directamente cuando pertenecen a la distribución actual. Se rechazan otros hosts remotos en lugar de reinterpretarlos como locales.
 
-**Las copias temporales no son los originales.** Si un agente edita una copia, no modifica el archivo original de Windows. Se muestra un aviso indicando que son copias. Esta alternativa es especialmente útil para imágenes y documentos que solo quieres mostrar al agente. Para editar el original, usa una ruta accesible desde WSL o arrástralo desde el Explorador de VS Code.
+**Las copias temporales no son los originales.** Si un agente edita una copia, no modifica el archivo original de Windows. Se muestra un aviso indicando que son copias. Esta alternativa puede servir para imágenes y documentos que solo quieres mostrar al agente, si el arrastre externo llega a SideTerm. Para editar el original, usa una ruta accesible desde WSL.
 
 Límites de la copia: **20 MiB por archivo**, **40 MiB por arrastre** y **128 MiB de copias por sesión**. La referencia a un original no tiene ese límite de tamaño, porque no se lee su contenido al arrastrarlo. No se copian carpetas del escritorio de forma recursiva. No se descargan enlaces web ni se extraen ZIP.
 
@@ -70,10 +72,9 @@ Para aislar la integración de OpenCode sin desinstalar el CLI, puedes deshabili
 ## Prueba inicial recomendada en tu WSL
 
 1. Abre una terminal nueva y ejecuta `pwd`.
-2. Mantén abierto en el editor un archivo A. Desde el Explorador arrastra un archivo B a SideTerm. Debe aparecer únicamente B, entre comillas, sin ejecutarse al soltar. Borra esa entrada con Ctrl+C antes de iniciar otro comando.
-3. Ejecuta tu agente y repite con una imagen o documento. La interpretación del archivo depende del agente y del modelo.
-4. Arrastra un archivo del escritorio Windows. Si solo se reciben sus bytes, confirma la copia temporal y verifica la ruta insertada. Cancela en otra prueba y comprueba que no se inserta nada.
-5. Prueba dos archivos a la vez, un nombre con espacios y cambiar entre pestañas.
+2. Para referenciar un archivo del proyecto, escribe o pega su ruta accesible desde WSL. El arrastre desde el Explorador de VS Code no funciona en el entorno descrito arriba.
+3. Si quieres investigar el arrastre desde el escritorio Windows, pruébalo por separado: todavía no se ha validado en VS Code/WSL2. Si la webview recibe un objeto con bytes pero sin ruta, SideTerm pedirá confirmar una copia temporal; cancelar no inserta nada.
+4. Cuando una ruta llegue a la terminal, el agente y el modelo determinarán cómo interpretar el archivo, incluida una imagen. La ruta no es un adjunto propio del agente.
 
 La transferencia conserva como destino la pestaña activa **en el momento de soltar**. Si cambias de pestaña mientras confirmas o se copia el archivo, no se redirige a la nueva. Si cierras la pestaña de destino, no se busca otra terminal.
 
@@ -92,13 +93,14 @@ Se mantienen el ayudante Python compartido, la consulta de nombres/rutas de 0.1.
 - **SSH, Docker, tmux y otros entornos anidados:** una ruta accesible en WSL no necesariamente existe dentro del host remoto o contenedor. No se transfieren automáticamente archivos a esos entornos.
 - **Plataformas:** esta versión sigue siendo WSL/Linux; no habilita Windows nativo ni macOS.
 
-No se promete paridad total con la terminal nativa. Las funciones nuevas se probaron con archivos y PTY reales en Linux y eventos de arrastre sintéticos en Chromium; **no se probó el VSIX instalado en una instancia real de VS Code/Windows/WSL ni un arrastre nativo del escritorio Windows**. Ver `PRUEBAS.md`.
+No se promete paridad total con la terminal nativa. Las funciones nuevas se probaron con archivos y PTY reales en Linux y eventos de arrastre sintéticos en Chromium. La observación en VS Code/Windows/WSL2 confirmó que el arrastre desde el Explorador **no llega a SideTerm**; no se probó un arrastre nativo del escritorio Windows. Ver `PRUEBAS.md`.
 
 ## Referencias consultadas
 
 - VS Code, manejo de archivos arrastrados en la terminal nativa: https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/terminal/browser/terminalInstance.ts
 - VS Code, formatos de datos del arrastre: https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/dnd.ts
 - Webviews y eventos de arrastre: https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/webview/browser/pre/index.html
+- VS Code 1.140.0, bloqueo temporal de eventos de puntero del iframe durante un arrastre: https://github.com/microsoft/vscode/blob/1.140.0/src/vs/workbench/contrib/webview/browser/webviewElement.ts
 - MDN, recepción de archivos del arrastre: https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/File_drag_and_drop
 - xterm.js, pegado: https://xtermjs.org/docs/api/terminal/classes/terminal/#paste
 - OpenCode, contexto automático del IDE: https://opencode.ai/docs/ide/
