@@ -1,0 +1,14 @@
+{
+  "platform": "Linux container; not the user WSL machine",
+  "python_version": "3.13.5",
+  "python_executable": "/usr/bin/python3",
+  "scope": "Only shared Python PTY helper, with 3 idle bash sessions; excludes shells, browser, VS Code extension host and AI CLI",
+  "helper_count": 1,
+  "idle_shell_count": 3,
+  "helper_rss_bytes": 12189696,
+  "helper_rss_before_bytes": 12189696,
+  "sample_seconds": 3.0,
+  "helper_cpu_ticks_delta": 0,
+  "clock_ticks_per_second": 100,
+  "not_a_total_memory_benchmark": true
+}

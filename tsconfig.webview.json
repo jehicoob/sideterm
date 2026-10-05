@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "module": "ES2022", "moduleResolution": "bundler",
+    "strict": true, "skipLibCheck": true, "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "outDir": "media", "rootDir": "webview", "types": [], "noEmitOnError": true
+  },
+  "include": ["webview/**/*.ts"]
+}

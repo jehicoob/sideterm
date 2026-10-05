@@ -1,0 +1,250 @@
+TAP version 13
+# Subtest: drag inserts only explicit file, never active editor or clipboard, with no Enter
+ok 1 - drag inserts only explicit file, never active editor or clipboard, with no Enter
+  ---
+  duration_ms: 591.50995
+  type: 'test'
+  ...
+# Subtest: missing drop data cannot fall back to editor, selection or workspace file
+ok 2 - missing drop data cannot fall back to editor, selection or workspace file
+  ---
+  duration_ms: 583.569184
+  type: 'test'
+  ...
+# Subtest: failed member means nothing is inserted from a multi-file batch
+ok 3 - failed member means nothing is inserted from a multi-file batch
+  ---
+  duration_ms: 576.796932
+  type: 'test'
+  ...
+# Subtest: copy requires consent; cancelled drop does not copy or paste
+ok 4 - copy requires consent; cancelled drop does not copy or paste
+  ---
+  duration_ms: 576.79223
+  type: 'test'
+  ...
+# Subtest: binary transfer pastes only completed temporary path to captured target tab
+ok 5 - binary transfer pastes only completed temporary path to captured target tab
+  ---
+  duration_ms: 618.399116
+  type: 'test'
+  ...
+# Subtest: unknown or exited destination does not send the drop to the next active tab
+ok 6 - unknown or exited destination does not send the drop to the next active tab
+  ---
+  duration_ms: 553.001614
+  type: 'test'
+  ...
+# Subtest: temporary cleanup errors never prevent PTY shutdown
+ok 7 - temporary cleanup errors never prevent PTY shutdown
+  ---
+  duration_ms: 554.613101
+  type: 'test'
+  ...
+# Subtest: explicit POSIX paths preserve spaces, apostrophes, accents, deduplicate only same path
+ok 8 - explicit POSIX paths preserve spaces, apostrophes, accents, deduplicate only same path
+  ---
+  duration_ms: 1.46044
+  type: 'test'
+  ...
+# Subtest: URI decode, selection fragment and local file URI
+ok 9 - URI decode, selection fragment and local file URI
+  ---
+  duration_ms: 0.346833
+  type: 'test'
+  ...
+# Subtest: WSL Windows drive conversion uses converter instead of assuming /mnt/c
+ok 10 - WSL Windows drive conversion uses converter instead of assuming /mnt/c
+  ---
+  duration_ms: 0.991614
+  type: 'test'
+  ...
+# Subtest: UNC to own WSL resolves while different distro and remote host are rejected
+ok 11 - UNC to own WSL resolves while different distro and remote host are rejected
+  ---
+  duration_ms: 0.63042
+  type: 'test'
+  ...
+# Subtest: unsupported URLs, relative paths, controls and malformed data never get inserted
+ok 12 - unsupported URLs, relative paths, controls and malformed data never get inserted
+  ---
+  duration_ms: 0.531491
+  type: 'test'
+  ...
+# Subtest: actual filesystem validation refuses missing paths and accepts regular files and dirs
+ok 13 - actual filesystem validation refuses missing paths and accepts regular files and dirs
+  ---
+  duration_ms: 7.742873
+  type: 'test'
+  ...
+# Subtest: shell quoting resists expansion without executing a single user-derived command
+ok 14 - shell quoting resists expansion without executing a single user-derived command
+  ---
+  duration_ms: 3.460653
+  type: 'test'
+  ...
+# Subtest: staging validates names, count and total before any copying
+ok 15 - staging validates names, count and total before any copying
+  ---
+  duration_ms: 2.287535
+  type: 'test'
+  ...
+# Subtest: acknowledged binary chunks yield exact bytes, private permissions and cleanup
+ok 16 - acknowledged binary chunks yield exact bytes, private permissions and cleanup
+  ---
+  duration_ms: 14.50539
+  type: 'test'
+  ...
+# Subtest: wrong session, offsets, incomplete transfer and replay are refused
+ok 17 - wrong session, offsets, incomplete transfer and replay are refused
+  ---
+  duration_ms: 1.974274
+  type: 'test'
+  ...
+# Subtest: closing one session does not remove another session copied files
+ok 18 - closing one session does not remove another session copied files
+  ---
+  duration_ms: 4.141208
+  type: 'test'
+  ...
+# Subtest: activation is lazy, registration is a sidebar webview, native terminal APIs untouched
+ok 19 - activation is lazy, registration is a sidebar webview, native terminal APIs untouched
+  ---
+  duration_ms: 9.359729
+  type: 'test'
+  ...
+# Subtest: one shared broker for two shells; selecting tabs does not create a process
+ok 20 - one shared broker for two shells; selecting tabs does not create a process
+  ---
+  duration_ms: 586.841889
+  type: 'test'
+  ...
+# Subtest: no process until the renderer acknowledges terminal creation
+ok 21 - no process until the renderer acknowledges terminal creation
+  ---
+  duration_ms: 1.764187
+  type: 'test'
+  ...
+# Subtest: restricted workspaces do not start sessions
+ok 22 - restricted workspaces do not start sessions
+  ---
+  duration_ms: 1.226868
+  type: 'test'
+  ...
+# Subtest: maximum tab limit is enforced before process creation
+ok 23 - maximum tab limit is enforced before process creation
+  ---
+  duration_ms: 553.586335
+  type: 'test'
+  ...
+# Subtest: close cancellation preserves shell and confirmation shuts down idle broker
+ok 24 - close cancellation preserves shell and confirmation shuts down idle broker
+  ---
+  duration_ms: 554.729246
+  type: 'test'
+  ...
+# Subtest: multiline paste cancellation never forwards commands
+ok 25 - multiline paste cancellation never forwards commands
+  ---
+  duration_ms: 554.385879
+  type: 'test'
+  ...
+# Subtest: multi-root selection passes the selected absolute working directory
+ok 26 - multi-root selection passes the selected absolute working directory
+  ---
+  duration_ms: 552.24663
+  type: 'test'
+  ...
+# Subtest: hidden view preserves running sessions and closing all stops them
+ok 27 - hidden view preserves running sessions and closing all stops them
+  ---
+  duration_ms: 604.144072
+  type: 'test'
+  ...
+# Subtest: renderer reload terminates otherwise unreachable sessions
+ok 28 - renderer reload terminates otherwise unreachable sessions
+  ---
+  duration_ms: 571.087437
+  type: 'test'
+  ...
+# Subtest: malformed and oversized input cannot grow the helper queue
+ok 29 - malformed and oversized input cannot grow the helper queue
+  ---
+  duration_ms: 626.52905
+  type: 'test'
+  ...
+# Subtest: HTML has restrictive CSP, local-only resources and no workspace interpolation
+ok 30 - HTML has restrictive CSP, local-only resources and no workspace interpolation
+  ---
+  duration_ms: 1.449203
+  type: 'test'
+  ...
+# Subtest: new terminal during previous helper shutdown is not spuriously marked exited
+ok 31 - new terminal during previous helper shutdown is not spuriously marked exited
+  ---
+  duration_ms: 1103.694691
+  type: 'test'
+  ...
+# Subtest: dynamic path and foreground labels reach host tab metadata
+ok 32 - dynamic path and foreground labels reach host tab metadata
+  ---
+  duration_ms: 2616.649994
+  type: 'test'
+  ...
+# Subtest: manual rename keeps changing cwd, blank and command restore automatic
+ok 33 - manual rename keeps changing cwd, blank and command restore automatic
+  ---
+  duration_ms: 594.343392
+  type: 'test'
+  ...
+# Subtest: minimum tab width is configurable and clamped live
+ok 34 - minimum tab width is configurable and clamped live
+  ---
+  duration_ms: 1.56636
+  type: 'test'
+  ...
+# Subtest: title follows the actual folder rather than launch folder
+ok 35 - title follows the actual folder rather than launch folder
+  ---
+  duration_ms: 1.040127
+  type: 'test'
+  ...
+# Subtest: real known process outranks another application mentioned by a title
+ok 36 - real known process outranks another application mentioned by a title
+  ---
+  duration_ms: 0.230898
+  type: 'test'
+  ...
+# Subtest: generic interpreter can use a known OSC application title
+ok 37 - generic interpreter can use a known OSC application title
+  ---
+  duration_ms: 2.596051
+  type: 'test'
+  ...
+# Subtest: return to shell cannot retain a stale agent title
+ok 38 - return to shell cannot retain a stale agent title
+  ---
+  duration_ms: 0.160232
+  type: 'test'
+  ...
+# Subtest: manual title keeps dynamic folder and can be cleared
+ok 39 - manual title keeps dynamic folder and can be cleared
+  ---
+  duration_ms: 0.189716
+  type: 'test'
+  ...
+# Subtest: display metadata strips bidi and controls and never interprets markup
+ok 40 - display metadata strips bidi and controls and never interprets markup
+  ---
+  duration_ms: 0.111859
+  type: 'test'
+  ...
+1..40
+# tests 40
+# suites 0
+# pass 40
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 9034.468497

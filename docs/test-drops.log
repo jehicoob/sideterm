@@ -1,0 +1,112 @@
+TAP version 13
+# Subtest: drag inserts only explicit file, never active editor or clipboard, with no Enter
+ok 1 - drag inserts only explicit file, never active editor or clipboard, with no Enter
+  ---
+  duration_ms: 587.274503
+  type: 'test'
+  ...
+# Subtest: missing drop data cannot fall back to editor, selection or workspace file
+ok 2 - missing drop data cannot fall back to editor, selection or workspace file
+  ---
+  duration_ms: 574.713123
+  type: 'test'
+  ...
+# Subtest: failed member means nothing is inserted from a multi-file batch
+ok 3 - failed member means nothing is inserted from a multi-file batch
+  ---
+  duration_ms: 573.275627
+  type: 'test'
+  ...
+# Subtest: copy requires consent; cancelled drop does not copy or paste
+ok 4 - copy requires consent; cancelled drop does not copy or paste
+  ---
+  duration_ms: 574.5329
+  type: 'test'
+  ...
+# Subtest: binary transfer pastes only completed temporary path to captured target tab
+ok 5 - binary transfer pastes only completed temporary path to captured target tab
+  ---
+  duration_ms: 615.19112
+  type: 'test'
+  ...
+# Subtest: unknown or exited destination does not send the drop to the next active tab
+ok 6 - unknown or exited destination does not send the drop to the next active tab
+  ---
+  duration_ms: 552.558648
+  type: 'test'
+  ...
+# Subtest: explicit POSIX paths preserve spaces, apostrophes, accents, deduplicate only same path
+ok 7 - explicit POSIX paths preserve spaces, apostrophes, accents, deduplicate only same path
+  ---
+  duration_ms: 2.235467
+  type: 'test'
+  ...
+# Subtest: URI decode, selection fragment and local file URI
+ok 8 - URI decode, selection fragment and local file URI
+  ---
+  duration_ms: 0.518511
+  type: 'test'
+  ...
+# Subtest: WSL Windows drive conversion uses converter instead of assuming /mnt/c
+ok 9 - WSL Windows drive conversion uses converter instead of assuming /mnt/c
+  ---
+  duration_ms: 1.375431
+  type: 'test'
+  ...
+# Subtest: UNC to own WSL resolves while different distro and remote host are rejected
+ok 10 - UNC to own WSL resolves while different distro and remote host are rejected
+  ---
+  duration_ms: 0.92957
+  type: 'test'
+  ...
+# Subtest: unsupported URLs, relative paths, controls and malformed data never get inserted
+ok 11 - unsupported URLs, relative paths, controls and malformed data never get inserted
+  ---
+  duration_ms: 0.665713
+  type: 'test'
+  ...
+# Subtest: actual filesystem validation refuses missing paths and accepts regular files and dirs
+ok 12 - actual filesystem validation refuses missing paths and accepts regular files and dirs
+  ---
+  duration_ms: 8.279721
+  type: 'test'
+  ...
+# Subtest: shell quoting resists expansion without executing a single user-derived command
+ok 13 - shell quoting resists expansion without executing a single user-derived command
+  ---
+  duration_ms: 4.496413
+  type: 'test'
+  ...
+# Subtest: staging validates names, count and total before any copying
+ok 14 - staging validates names, count and total before any copying
+  ---
+  duration_ms: 3.072378
+  type: 'test'
+  ...
+# Subtest: acknowledged binary chunks yield exact bytes, private permissions and cleanup
+ok 15 - acknowledged binary chunks yield exact bytes, private permissions and cleanup
+  ---
+  duration_ms: 13.72201
+  type: 'test'
+  ...
+# Subtest: wrong session, offsets, incomplete transfer and replay are refused
+ok 16 - wrong session, offsets, incomplete transfer and replay are refused
+  ---
+  duration_ms: 2.543581
+  type: 'test'
+  ...
+# Subtest: closing one session does not remove another session copied files
+ok 17 - closing one session does not remove another session copied files
+  ---
+  duration_ms: 2.417722
+  type: 'test'
+  ...
+1..17
+# tests 17
+# suites 0
+# pass 17
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3526.588728

@@ -1,0 +1,224 @@
+{
+  "name": "sideterm-local",
+  "displayName": "SideTerm Local",
+  "description": "Terminales reales en pestañas dentro de una vista lateral. Uso local en WSL/Linux; sin reemplazar el panel Terminal.",
+  "version": "0.1.2",
+  "publisher": "jehicoob-local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "terminal",
+    "sidebar",
+    "wsl",
+    "pty",
+    "local"
+  ],
+  "main": "./dist/extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [
+    "onView:sideterm.sessions"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "La extensión ejecuta shells con los permisos del usuario. Solo se habilita en espacios de trabajo de confianza."
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "Necesita un sistema de archivos y procesos locales o remotos reales."
+    }
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "sideterm",
+          "title": "SideTerm",
+          "icon": "media/sideterm.svg"
+        }
+      ]
+    },
+    "views": {
+      "sideterm": [
+        {
+          "id": "sideterm.sessions",
+          "name": "SideTerm",
+          "type": "webview",
+          "contextualTitle": "SideTerm Local"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "sideterm.show",
+        "title": "Abrir",
+        "category": "SideTerm"
+      },
+      {
+        "command": "sideterm.new",
+        "title": "Nueva terminal",
+        "category": "SideTerm",
+        "icon": "$(add)"
+      },
+      {
+        "command": "sideterm.rename",
+        "title": "Renombrar pestaña activa",
+        "category": "SideTerm"
+      },
+      {
+        "command": "sideterm.close",
+        "title": "Cerrar terminal activa",
+        "category": "SideTerm"
+      },
+      {
+        "command": "sideterm.closeAll",
+        "title": "Cerrar todas las terminales",
+        "category": "SideTerm",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "sideterm.copy",
+        "title": "Copiar selección",
+        "category": "SideTerm"
+      },
+      {
+        "command": "sideterm.paste",
+        "title": "Pegar",
+        "category": "SideTerm"
+      },
+      {
+        "command": "sideterm.clear",
+        "title": "Limpiar terminal activa",
+        "category": "SideTerm"
+      },
+      {
+        "command": "sideterm.diagnostics",
+        "title": "Mostrar diagnóstico",
+        "category": "SideTerm"
+      },
+      {
+        "command": "sideterm.settings",
+        "title": "Configuración",
+        "category": "SideTerm",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "sideterm.resetName",
+        "title": "Restablecer nombre automático",
+        "category": "SideTerm"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "sideterm.new",
+          "when": "view == sideterm.sessions",
+          "group": "navigation@1"
+        },
+        {
+          "command": "sideterm.closeAll",
+          "when": "view == sideterm.sessions",
+          "group": "1_manage@1"
+        },
+        {
+          "command": "sideterm.settings",
+          "when": "view == sideterm.sessions",
+          "group": "2_settings@1"
+        },
+        {
+          "command": "sideterm.diagnostics",
+          "when": "view == sideterm.sessions",
+          "group": "2_settings@2"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "SideTerm Local",
+      "properties": {
+        "sideterm.shell": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Ruta absoluta del shell en WSL/Linux. Vacío usa $SHELL; alternativa /bin/bash. No es un comando con argumentos."
+        },
+        "sideterm.shellArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "-i"
+          ],
+          "scope": "machine",
+          "description": "Argumentos del shell. Se leen .bashrc/.zshrc por ser interactivo. Solo cambia las nuevas sesiones."
+        },
+        "sideterm.pythonPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Ruta del ejecutable Python 3.8+ en el host remoto. Vacío prefiere /usr/bin/python3. No requiere pip ni la extensión Python."
+        },
+        "sideterm.scrollback": {
+          "type": "integer",
+          "default": 1000,
+          "minimum": 0,
+          "maximum": 10000,
+          "description": "Máximo de líneas de historial por pestaña. Aumentarlo consume más memoria. Solo cambia las nuevas sesiones."
+        },
+        "sideterm.maxSessions": {
+          "type": "integer",
+          "default": 6,
+          "minimum": 1,
+          "maximum": 12,
+          "description": "Límite de pestañas simultáneas, incluidas las finalizadas."
+        },
+        "sideterm.fontSize": {
+          "type": "integer",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 32,
+          "description": "Tamaño de letra. 0 hereda terminal.integrated.fontSize. Se aplica al actualizar la configuración."
+        },
+        "sideterm.confirmClose": {
+          "type": "boolean",
+          "default": true,
+          "description": "Pedir confirmación antes de cerrar una sesión en ejecución, incluso si parece estar en el prompt."
+        },
+        "sideterm.confirmMultilinePaste": {
+          "type": "boolean",
+          "default": true,
+          "description": "Pedir confirmación cuando el texto pegado incluye saltos de línea, porque podría ejecutar comandos."
+        },
+        "sideterm.cursorBlink": {
+          "type": "boolean",
+          "default": false,
+          "description": "Cursor parpadeante. Desactivado por defecto para evitar repintados en reposo."
+        },
+        "sideterm.tabMinWidth": {
+          "type": "integer",
+          "default": 140,
+          "minimum": 80,
+          "maximum": 320,
+          "description": "Ancho mínimo en píxeles de cada pestaña. Las pestañas reparten todo el ancho disponible por igual; cuando no caben, se desplazan horizontalmente. Se aplica sin reiniciar."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.host.json && tsc -p tsconfig.webview.json",
+    "test": "python3 -m unittest discover -s tests -p 'test_*.py' -v && node --test tests/*.test.cjs",
+    "package": "python3 scripts/package.py",
+    "vscode:prepublish": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "typescript": "5.8.3"
+  }
+}

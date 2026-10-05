@@ -1,0 +1,38 @@
+
+> sideterm-local@0.1.2 test
+> python3 -m unittest discover -s tests -p 'test_*.py' -v && node --test tests/*.test.cjs
+
+test_cannot_follow_process_in_another_linux_session (test_metadata.LabelPolicy.test_cannot_follow_process_in_another_linux_session) ... ok
+test_known_entrypoints (test_metadata.LabelPolicy.test_known_entrypoints) ... ok
+test_sanitize_controls_and_bidi (test_metadata.LabelPolicy.test_sanitize_controls_and_bidi) ... ok
+test_wrapper_traversal_with_proc_fixture (test_metadata.LabelPolicy.test_wrapper_traversal_with_proc_fixture) ... ok
+test_background_job_does_not_hijack_tab (test_metadata.MetadataIntegration.test_background_job_does_not_hijack_tab) ... ok
+test_cd_tracks_actual_process_cwd_spaces_unicode_and_cd_back (test_metadata.MetadataIntegration.test_cd_tracks_actual_process_cwd_spaces_unicode_and_cd_back) ... ok
+test_foreground_agent_labels_and_return_to_shell (test_metadata.MetadataIntegration.test_foreground_agent_labels_and_return_to_shell) ... ok
+test_foreground_cwd_is_not_frozen_to_shell_parent (test_metadata.MetadataIntegration.test_foreground_cwd_is_not_frozen_to_shell_parent) ... ok
+test_hidden_view_suspends_metadata_without_stopping_pty (test_metadata.MetadataIntegration.test_hidden_view_suspends_metadata_without_stopping_pty) ... ok
+test_node_entrypoint_and_arguments_not_misidentified_or_exposed (test_metadata.MetadataIntegration.test_node_entrypoint_and_arguments_not_misidentified_or_exposed) ... ok
+test_two_sessions_keep_independent_dynamic_directories (test_metadata.MetadataIntegration.test_two_sessions_keep_independent_dynamic_directories) ... ok
+test_unchanged_metadata_is_not_retransmitted (test_metadata.MetadataIntegration.test_unchanged_metadata_is_not_retransmitted) ... ok
+test_wrapper_child_identifies_agent_without_hijacking_cwd (test_metadata.MetadataIntegration.test_wrapper_child_identifies_agent_without_hijacking_cwd) ... skipped 'Kernel does not expose /proc/.../children for real wrapper traversal; mocked branch tested separately'
+test_close_cleans_job_control_descendant (test_pty.PtyIntegration.test_close_cleans_job_control_descendant) ... ok
+test_ctrl_c_interrupts_foreground_not_shell (test_pty.PtyIntegration.test_ctrl_c_interrupts_foreground_not_shell) ... ok
+test_cwd_with_spaces_and_unicode (test_pty.PtyIntegration.test_cwd_with_spaces_and_unicode) ... ok
+test_exit_status (test_pty.PtyIntegration.test_exit_status) ... ok
+test_flow_control_bounded_and_resumes (test_pty.PtyIntegration.test_flow_control_bounded_and_resumes) ... ok
+test_independent_sessions (test_pty.PtyIntegration.test_independent_sessions) ... ok
+test_initial_size_and_resize (test_pty.PtyIntegration.test_initial_size_and_resize) ... ok
+test_invalid_cwd_fails_without_spawn (test_pty.PtyIntegration.test_invalid_cwd_fails_without_spawn) ... ok
+test_invalid_shell_fails_without_spawn (test_pty.PtyIntegration.test_invalid_shell_fails_without_spawn) ... ok
+test_lazy_host_starts_with_no_shells (test_pty.PtyIntegration.test_lazy_host_starts_with_no_shells) ... ok
+test_malformed_protocol_recovers (test_pty.PtyIntegration.test_malformed_protocol_recovers) ... ok
+test_parent_pipe_eof_cleans_shell (test_pty.PtyIntegration.test_parent_pipe_eof_cleans_shell) ... ok
+test_real_interactive_tty_and_stderr (test_pty.PtyIntegration.test_real_interactive_tty_and_stderr) ... ok
+test_shell_environment (test_pty.PtyIntegration.test_shell_environment) ... ok
+test_utf8_and_ansi (test_pty.PtyIntegration.test_utf8_and_ansi) ... ok
+
+----------------------------------------------------------------------
+Ran 28 tests in 29.077s
+
+OK (skipped=1)
+TAP version 13

@@ -1,0 +1,17 @@
+{
+  "filename": "sideterm-local-0.1.2.vsix",
+  "bytes": 130808,
+  "sha256": "f8766f13f3a16e125e2248195b7fe5e9dceb0b5c9e9ad35c76d1f76c71142781",
+  "entries": 25,
+  "uncompressed_bytes": 457097,
+  "extension_id": "jehicoob-local.sideterm-local",
+  "version": "0.1.2",
+  "checks": [
+    "ZIP CRC and path safety",
+    "VSIX XML and package identity",
+    "All declared assets present",
+    "All runtime entrypoints/resources present",
+    "No native addons, runtime npm dependencies or proposed VS Code APIs"
+  ],
+  "actual_vscode_installation_tested": false
+}
