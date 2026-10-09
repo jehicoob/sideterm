@@ -22,6 +22,15 @@ export interface WebviewView extends Disposable {
   onDidChangeVisibility: Event<void>;
   show(preserveFocus?: boolean): void;
 }
+export interface TreeItem { label: string; tooltip?: string; description?: string; iconPath?: unknown; }
+export interface DataTransferItem { asString(): PromiseLike<string>; }
+export interface DataTransfer { get(mimeType: string): DataTransferItem | undefined; }
+export interface TreeDragAndDropController<T> {
+  readonly dropMimeTypes: readonly string[];
+  readonly dragMimeTypes: readonly string[];
+  handleDrop?(target: T | undefined, dataTransfer: DataTransfer, token: unknown): PromiseLike<void> | void;
+}
+export interface TreeDataProvider<T> { getTreeItem(element: T): TreeItem; getChildren(element?: T): T[]; }
 export interface ExtensionContext {
   extensionUri: Uri;
   extensionPath: string;
@@ -29,7 +38,9 @@ export interface ExtensionContext {
 }
 export interface Api {
   Uri: { joinPath(base: Uri, ...segments: string[]): Uri; file(path: string): Uri; };
+  ThemeIcon: new (id: string) => unknown;
   window: {
+    createTreeView<T>(id: string, options: {treeDataProvider: TreeDataProvider<T>; dragAndDropController?: TreeDragAndDropController<T>}): Disposable;
     createOutputChannel(name: string): OutputChannel;
     registerWebviewViewProvider(id: string, provider: { resolveWebviewView(view: WebviewView): unknown }, options: {webviewOptions: {retainContextWhenHidden: boolean}}): Disposable;
     showInformationMessage(message: string, options: {modal?: boolean; detail?: string}, ...items: string[]): PromiseLike<string | undefined>;

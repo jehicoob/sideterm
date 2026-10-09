@@ -46,6 +46,7 @@ const titles_1 = require("./titles");
 const dropPaths_1 = require("./dropPaths");
 const dropStore_1 = require("./dropStore");
 const VIEW_ID = 'sideterm.sessions';
+const DROP_VIEW_ID = 'sideterm.drop';
 const MAX_CLIPBOARD = 128 * 1024;
 const WINDOW = 131072;
 function messageObject(value) {
@@ -437,6 +438,7 @@ class SideTermProvider {
             this.updateTabs();
         }
     }
+    async focusTerminal() { await this.show(); this.post({ type: 'focus' }); }
     copy() { this.post({ type: 'copy', id: this.activeId }); }
     clear() { this.post({ type: 'clear', id: this.activeId }); }
     async paste(id = this.activeId, supplied) {
@@ -467,6 +469,41 @@ class SideTermProvider {
             this.log.appendLine('[archivos] No se pudieron eliminar algunas copias temporales. El cierre de terminales continúa. Revisa los directorios temporales sideterm-drop- de esta sesión.');
         }
     }
+    pathEnvironment() {
+        const authorities = (api_1.vscode.workspace.workspaceFolders || []).filter(f => f.uri.scheme === 'vscode-remote').map(f => f.uri.authority || '');
+        return { wsl: api_1.vscode.env.remoteName === 'wsl' || !!process.env.WSL_DISTRO_NAME, distro: process.env.WSL_DISTRO_NAME, authorities };
+    }
+    /** Native drop zone and Explorer menu: the workbench never forwards these drags into the webview iframe. */
+    async insertPaths(refs) {
+        const session = this.active();
+        if (!session || session.state !== 'running')
+            throw new Error('Abre o selecciona una pestaña de SideTerm en ejecución antes de insertar rutas.');
+        if (!api_1.vscode.workspace.isTrusted)
+            throw new Error('Abre un workspace de confianza para insertar rutas.');
+        if (this.dropOperation)
+            throw new Error('Ya hay una operación de arrastre en curso.');
+        this.dropOperation = true;
+        const generation = this.generation;
+        try {
+            const paths = await (0, dropPaths_1.resolveDropPaths)(refs, this.pathEnvironment());
+            if (this.generation !== generation || this.sessions.get(session.id) !== session || session.state !== 'running')
+                throw new Error('La pestaña de destino se cerró antes de insertar las rutas. No se insertaron en otra pestaña.');
+            const text = paths.map(dropPaths_1.quoteShellPath).join(' ') + ' ';
+            if (Buffer.byteLength(text, 'utf8') > MAX_CLIPBOARD)
+                throw new Error('El conjunto de rutas supera 128 KiB.');
+            this.view?.show(false);
+            this.post({ type: 'paste', id: session.id, text }); // No CR/LF/Enter.
+        }
+        finally {
+            this.dropOperation = false;
+        }
+    }
+    async onNativeDrop(dataTransfer) {
+        const list = await dataTransfer.get('text/uri-list')?.asString();
+        const refs = (list || '').split(/\r?\n/).map(line => line.trim())
+            .filter(line => line && !line.startsWith('#')).map(value => ({ kind: 'uri', value }));
+        await this.insertPaths(refs);
+    }
     async onFileDrop(msg) {
         if (typeof msg.requestId !== 'string' || msg.requestId.length > 100)
             return;
@@ -496,8 +533,7 @@ class SideTermProvider {
         try {
             switch (msg.action) {
                 case 'paths': {
-                    const authorities = (api_1.vscode.workspace.workspaceFolders || []).filter(f => f.uri.scheme === 'vscode-remote').map(f => f.uri.authority || '');
-                    const paths = await (0, dropPaths_1.resolveDropPaths)(msg.refs, { wsl: api_1.vscode.env.remoteName === 'wsl' || !!process.env.WSL_DISTRO_NAME, distro: process.env.WSL_DISTRO_NAME, authorities });
+                    const paths = await (0, dropPaths_1.resolveDropPaths)(msg.refs, this.pathEnvironment());
                     insert(paths);
                     reply({ ok: true });
                     break;
@@ -652,7 +688,7 @@ class SideTermProvider {
     }
     async settings() { await api_1.vscode.commands.executeCommand('workbench.action.openSettings', '@ext:jehicoob-local.sideterm-local'); }
     async diagnostics() {
-        this.log.appendLine('\n=== SideTerm Local 0.1.2 ===');
+        this.log.appendLine('\n=== SideTerm Local 0.1.5 ===');
         this.log.appendLine(`VS Code: ${api_1.vscode.version}; host: ${process.platform}/${process.arch}; remoto: ${api_1.vscode.env.remoteName ?? 'no'}`);
         this.log.appendLine(`Node del extension host: ${process.version}; Python: ${this.bridge.pythonVersion || 'no iniciado'}`);
         this.log.appendLine(`Motor PTY: ${this.bridge.pid ?? 'apagado'}; pestañas: ${this.sessions.size}; historial por nueva pestaña: ${this.uiConfig().scrollback}`);
@@ -669,6 +705,7 @@ class SideTermProvider {
             this.log.appendLine(`  ${s.name}: ${s.state}; PID ${s.pid ?? '-'}; ${s.cols}x${s.rows}; salida pendiente ${s.outstanding} B`);
         this.log.appendLine('Nombres/rutas: consulta compartida cada 1 s, suspendida con la vista oculta; mínimo de pestaña: ' + this.uiConfig().tabMinWidth + ' px.');
         this.log.appendLine('Arrastre: solo referencias explícitas; copias sin ruta requieren confirmación y bloques de 64 KiB. Sin editor activo ni contexto automático.');
+        this.log.appendLine('Desde el Explorador: vista “Soltar archivos” o menú contextual “Insertar ruta en SideTerm”, siempre en la pestaña activa.');
         this.log.appendLine('Sin telemetría, sockets de escucha ni registro de comandos. El consumo de los agentes es independiente.');
         this.log.show(true);
     }
@@ -710,7 +747,7 @@ function activate(context) {
     const instance = provider;
     context.subscriptions.push(instance, api_1.vscode.window.registerWebviewViewProvider(VIEW_ID, instance, { webviewOptions: { retainContextWhenHidden: true } }));
     const commands = {
-        'sideterm.show': () => instance.show(), 'sideterm.new': () => instance.newSession(),
+        'sideterm.show': () => instance.show(), 'sideterm.focus': () => instance.focusTerminal(), 'sideterm.new': () => instance.newSession(),
         'sideterm.rename': () => instance.rename(), 'sideterm.resetName': () => instance.resetName(), 'sideterm.close': () => instance.closeSession(),
         'sideterm.closeAll': () => instance.endAll(), 'sideterm.copy': () => instance.copy(),
         'sideterm.paste': () => instance.paste(), 'sideterm.clear': () => instance.clear(),
@@ -718,5 +755,20 @@ function activate(context) {
     };
     for (const [command, action] of Object.entries(commands))
         context.subscriptions.push(api_1.vscode.commands.registerCommand(command, action));
+    const report = (error) => instance.report(error);
+    context.subscriptions.push(api_1.vscode.commands.registerCommand('sideterm.insertPath', (clicked, selected) => {
+        const uris = (Array.isArray(selected) && selected.length ? selected : clicked ? [clicked] : []);
+        return instance.insertPaths(uris.map(uri => ({ kind: 'uri', value: uri.toString() }))).catch(report);
+    }));
+    const dropHint = 'drop-hint';
+    context.subscriptions.push(api_1.vscode.window.createTreeView(DROP_VIEW_ID, {
+        treeDataProvider: {
+            getChildren: element => element ? [] : [dropHint],
+            getTreeItem: () => ({ label: 'Suelta aquí archivos del Explorador', iconPath: new api_1.vscode.ThemeIcon('cloud-upload'),
+                tooltip: 'Inserta las rutas entre comillas en la pestaña activa de SideTerm, sin pulsar Enter.' })
+        },
+        dragAndDropController: { dropMimeTypes: ['text/uri-list'], dragMimeTypes: [],
+            handleDrop: (_target, dataTransfer) => instance.onNativeDrop(dataTransfer).catch(report) }
+    }));
 }
 async function deactivate() { await provider?.shutdown(); }

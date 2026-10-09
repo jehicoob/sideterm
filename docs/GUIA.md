@@ -1,11 +1,11 @@
-# SideTerm Local 0.1.2 — Arrastre explícito de archivos
+# SideTerm Local 0.1.5 — Arrastre explícito de archivos
 
 ## Actualizar sin cambiar la distribución
 
 1. Guarda el trabajo y cierra las sesiones de SideTerm. Todavía no sobreviven a una recarga.
 2. En tu ventana **WSL: Ubuntu-22.04**, usa `Ctrl+Shift+P` → `Extensions: Install from VSIX...`.
-3. Selecciona **sideterm-local-0.1.2.vsix**. No desinstales antes la versión anterior.
-4. Recarga solo si VS Code lo solicita. Confirma **0.1.2** en la instalación WSL.
+3. Selecciona **sideterm-local-0.1.5.vsix**. No desinstales antes la versión anterior.
+4. Recarga solo si VS Code lo solicita. Confirma **0.1.5** en la instalación WSL.
 5. Abre SideTerm en su ubicación actual y crea sesiones nuevas.
 
 No ejecutes `View: Reset View Locations`, no muevas la Terminal nativa y no vuelvas a dividir el editor. Se conservan el identificador `jehicoob-local.sideterm-local`, la vista y los ajustes existentes.
@@ -24,7 +24,14 @@ La ruta se inserta como texto, con comillas y escape de apóstrofes para bash/zs
 
 **Limitación observada:** en VS Code 1.140.0 instalado en Windows con workspace WSL2, al arrastrar un archivo desde el Explorador de VS Code hacia SideTerm, la webview no recibe `dragenter`, `dragover` ni `drop`. Se confirmó en las herramientas de desarrollo dentro de SideTerm; al arrastrar hacia la vista independiente de OpenCode sí se reciben eventos. VS Code desactiva temporalmente los eventos de puntero del iframe de la webview durante arrastres iniciados en la ventana ([código de VS Code 1.140.0](https://github.com/microsoft/vscode/blob/1.140.0/src/vs/workbench/contrib/webview/browser/webviewElement.ts)). Por ello, los manejadores de SideTerm no pueden insertar esa ruta en este caso; pulsar Shift no cambia el resultado. No se ha comprobado este comportamiento con archivos arrastrados desde el escritorio Windows ni en todas las versiones de VS Code.
 
-Como alternativa para un archivo del proyecto, escribe o pega manualmente su ruta accesible desde WSL en la terminal. El arrastre directo desde el Explorador de VS Code queda pendiente de una solución que no dependa del evento `drop` de esta webview.
+**Desde 0.1.3** hay dos vías que no dependen del evento `drop` de la webview:
+
+- **Vista «Soltar archivos»**: aparece bajo la terminal, dentro del mismo panel de SideTerm. Arrastra uno o varios archivos del Explorador y suéltalos sobre ella. Es una vista nativa de VS Code (API `TreeDragAndDropController`, tipo `text/uri-list`), por lo que el workbench sí le entrega el arrastre. Las rutas se insertan entre comillas en la **pestaña activa**, sin Enter, y el foco vuelve a la terminal. Puedes ajustar su altura arrastrando el borde o plegarla desde su título.
+- **Menú contextual del Explorador**: clic derecho → **Insertar ruta en SideTerm**. Con varios archivos seleccionados inserta todos.
+
+Ambas usan la misma validación que el arrastre: rutas del mismo host WSL o de unidades de Windows (`C:\...`, `file:///C:/...` o `vscode-local:/c:/...`, convertidas con `wslpath` a rutas como `/mnt/c/...`), existentes y accesibles, máximo 16. Los archivos de Windows se referencian en su sitio original; no se copian. Si no hay una pestaña en ejecución, avisan y no insertan nada. No es posible mostrar un recuadro «suelta aquí» encima de la terminal solo durante el arrastre: VS Code no notifica a la extensión que ha empezado un arrastre y no entrega esos eventos a la webview.
+
+**Pendiente de validar en tu VS Code/WSL2:** estas vías se probaron con la API de VS Code simulada; aún no en VS Code 1.140.0 real.
 
 Cuando se recibe un evento de arrastre válido con varias selecciones, se insertan varias rutas, separadas por espacios, sin combinar los distintos formatos duplicados del mismo evento. Máximo: **16 archivos o carpetas por arrastre**.
 
@@ -72,7 +79,7 @@ Para aislar la integración de OpenCode sin desinstalar el CLI, puedes deshabili
 ## Prueba inicial recomendada en tu WSL
 
 1. Abre una terminal nueva y ejecuta `pwd`.
-2. Para referenciar un archivo del proyecto, escribe o pega su ruta accesible desde WSL. El arrastre desde el Explorador de VS Code no funciona en el entorno descrito arriba.
+2. Para referenciar un archivo del proyecto, arrástralo del Explorador a la vista **Soltar archivos** o usa **Insertar ruta en SideTerm** en su menú contextual. Soltarlo directamente sobre la terminal no funciona en el entorno descrito arriba.
 3. Si quieres investigar el arrastre desde el escritorio Windows, pruébalo por separado: todavía no se ha validado en VS Code/WSL2. Si la webview recibe un objeto con bytes pero sin ruta, SideTerm pedirá confirmar una copia temporal; cancelar no inserta nada.
 4. Cuando una ruta llegue a la terminal, el agente y el modelo determinarán cómo interpretar el archivo, incluida una imagen. La ruta no es un adjunto propio del agente.
 
@@ -93,7 +100,7 @@ Se mantienen el ayudante Python compartido, la consulta de nombres/rutas de 0.1.
 - **SSH, Docker, tmux y otros entornos anidados:** una ruta accesible en WSL no necesariamente existe dentro del host remoto o contenedor. No se transfieren automáticamente archivos a esos entornos.
 - **Plataformas:** esta versión sigue siendo WSL/Linux; no habilita Windows nativo ni macOS.
 
-No se promete paridad total con la terminal nativa. Las funciones nuevas se probaron con archivos y PTY reales en Linux y eventos de arrastre sintéticos en Chromium. La observación en VS Code/Windows/WSL2 confirmó que el arrastre desde el Explorador **no llega a SideTerm**; no se probó un arrastre nativo del escritorio Windows. Ver `PRUEBAS.md`.
+No se promete paridad total con la terminal nativa. Las funciones nuevas se probaron con archivos y PTY reales en Linux y eventos de arrastre sintéticos en Chromium. La observación en VS Code/Windows/WSL2 confirmó que el arrastre desde el Explorador **no llega a la webview de SideTerm**; la vista nativa de 0.1.3 aún no se ha probado allí; no se probó un arrastre nativo del escritorio Windows. Ver `PRUEBAS.md`.
 
 ## Referencias consultadas
 

@@ -1,4 +1,19 @@
-# SideTerm Local 0.1.2 — Pruebas y límites
+# SideTerm Local 0.1.5 — Pruebas y límites
+
+## Cambios de 0.1.4 y 0.1.5
+
+- Node: una prueba nueva verifica que **SideTerm: Enfocar terminal** muestra la vista y pide a la interfaz enfocar la pestaña activa.
+- Diagnóstico del foco en VS Code 1.140.0 real (Windows + WSL2), con registros de consola del usuario dentro de la webview y en el workbench. El cuadro de texto de xterm conservaba el foco al volver de Alt+Tab. A la primera letra, VS Code llamó a `focus()` sobre `menubar-menu-button` desde `MenuBar.onModifierKeyToggled`. El mecanismo se contrastó con el código fuente de VS Code 1.140.0 (`ModifierKeyEmitter` en `dom.ts`, `menubar.ts`, `pre/index.html`).
+- El bloqueo de Alt sin otra tecla vive en la webview y **no tiene prueba automatizada**, porque Chromium/Playwright no están instalados. Falta confirmarlo repitiendo el flujo en VS Code real.
+
+## Cambios de 0.1.3
+
+- Node: **45 pruebas correctas**; 5 nuevas para la vista **Soltar archivos** y el comando del Explorador (solo `text/uri-list`, rutas entre comillas sin Enter en la pestaña activa, selección múltiple, sin pestaña en ejecución, host remoto ajeno, lista vacía y ruta inexistente). Una prueba hace fallar cualquier lectura del editor activo o del portapapeles.
+- Python: 28 pruebas ejecutadas, sin fallos.
+- Chromium: **no se ejecutó** en 0.1.3 porque Playwright y Chromium no están instalados en esta máquina. El ajuste de la última fila (desplazamientos en lugar de `padding` en `.terminal-pane`) no tiene todavía comprobación visual.
+- No se ha probado en VS Code real que el Explorador entregue `text/uri-list` a la vista nativa en Windows + WSL2.
+
+Los resultados siguientes corresponden a 0.1.2.
 
 ## Resultado
 

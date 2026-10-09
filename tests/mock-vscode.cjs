@@ -28,7 +28,9 @@ function createHarness(options = {}) {
   };
   const vscode = {
     version: 'mock-public-api-1.85', Uri: {file: uri, joinPath: (base, ...parts) => uri(path.join(base.fsPath, ...parts))},
+    ThemeIcon: class {constructor(id) {this.id = id;}},
     window: {
+      createTreeView(id, options) { harness.treeViews.set(id, options); return {dispose() {harness.treeViews.delete(id);}}; },
       createOutputChannel() {return {appendLine(value) {logs.push(value);}, show() {}, dispose() {}};},
       registerWebviewViewProvider(_id, provider, registrationOptions) { harness.registrationOptions = registrationOptions; provider.resolveWebviewView(view); harness.provider = provider; return {dispose() {}}; },
       async showErrorMessage(message) {logs.push('ERROR: ' + message);},
@@ -47,7 +49,7 @@ function createHarness(options = {}) {
     },
     env: {remoteName: 'wsl', appName: 'VS Code fixture', clipboard: {async readText() {return answers.clipboard;}, async writeText(value) {answers.clipboard = value;}}}
   };
-  const harness = {root, roots, view, vscode, messages, logs, prompts, commands, answers, config,
+  const harness = {root, roots, view, vscode, messages, logs, prompts, commands, answers, config, treeViews: new Map(),
     setBaseUrl(url) {baseUrl = url;}, receive(message) {incoming.fire(message);},
     visibility(value) {view.visible = value; visibility.fire();},
     configChanged() {changed.fire({affectsConfiguration() {return true;}});},

@@ -310,7 +310,7 @@ class Host:
                 os.chdir(cwd)
                 env = dict(os.environ)
                 env.update(TERM='xterm-256color', COLORTERM='truecolor',
-                           TERM_PROGRAM='SideTermLocal', TERM_PROGRAM_VERSION='0.1.2',
+                           TERM_PROGRAM='SideTermLocal', TERM_PROGRAM_VERSION='0.1.5',
                            SIDETERM_LOCAL='1')
                 # Python isolated mode protects this helper, not the user's shell.
                 os.execve(shell, [shell] + args, env)

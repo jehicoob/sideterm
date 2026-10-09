@@ -16,6 +16,17 @@ test('WSL Windows drive conversion uses converter instead of assuming /mnt/c',as
  assert.deepEqual(await resolveDropPaths([ref('file:///C:/Users/a%20b.png','uri')],e),['/custom/c/Users/a b.png']);
  assert.equal(called,'C:/Users/a b.png');
 });
+test('Windows client files (vscode-local) convert through wslpath only inside WSL',async()=>{
+ let called; const e={...env,convertWindows:async x=>{called=x;return '/mnt/c/Users/a b.png';}};
+ assert.deepEqual(await resolveDropPaths([ref('vscode-local:/c%3A/Users/a%20b.png','uri')],e),['/mnt/c/Users/a b.png']);
+ assert.equal(called,'c:/Users/a b.png');
+ await assert.rejects(resolveDropPaths([ref('vscode-local:/c%3A/Users/a.png','uri')],{...e,wsl:false}));
+ await assert.rejects(resolveDropPaths([ref('vscode-local:/home/a.png','uri')],e));
+ await assert.rejects(resolveDropPaths([ref('vscode-local://host/c%3A/a.png','uri')],e));
+});
+test('unsupported scheme error names the scheme to ease diagnosis',async()=>{
+ await assert.rejects(resolveDropPaths([ref('untitled:Untitled-1','uri')],env),/«untitled:»/);
+});
 test('UNC to own WSL resolves while different distro and remote host are rejected',async()=>{
  assert.deepEqual(await resolveDropPaths([ref('\\\\wsl.localhost\\Ubuntu-22.04\\home\\a\\img.png')],env),['/home/a/img.png']);
  assert.deepEqual(await resolveDropPaths([ref('file://wsl$/Ubuntu-22.04/home/a/img.png','uri')],env),['/home/a/img.png']);

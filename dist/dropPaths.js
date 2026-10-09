@@ -118,8 +118,14 @@ async function resolveDropPaths(refs, env) {
                 if (/^\/[a-z]:\//i.test(value))
                     value = value.slice(1);
             }
+            else if (uri.protocol === 'vscode-local:') {
+                // A file on the VS Code client (Windows) seen from this WSL extension host.
+                if (!env.wsl || uri.hostname || !/^\/[a-z]:\//i.test(p))
+                    throw new Error('Este archivo del equipo Windows no tiene una ruta de unidad convertible a WSL.');
+                value = p.slice(1);
+            }
             else
-                throw new Error('Solo se admiten archivos locales o del mismo host WSL; no enlaces web ni archivos sin guardar.');
+                throw new Error(`Solo se admiten archivos de WSL/Linux o de unidades de Windows (se recibió «${uri.protocol}»); no enlaces web ni archivos sin guardar.`);
         }
         if (/^[a-z]:[\\/]/i.test(value) || /^(?:\\\\|\/\/)/.test(value))
             value = await windowsPath(value, env);

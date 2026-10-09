@@ -341,6 +341,9 @@ window.addEventListener('message', event => {
             }
             break;
         }
+        case 'focus':
+            current()?.terminal.focus();
+            break;
         case 'notice':
             showNotice(msg.message, !!msg.error);
             break;
@@ -368,6 +371,13 @@ document.addEventListener('paste', event => {
     if (text)
         send({ type: 'pasteText', id: tab.meta.id, text });
 }, true);
+// VS Code forwards webview key events to its menu bar, which takes focus after a lone Alt press
+// and release. With Alt+Tab the release happens in another app, so the next forwarded keyup
+// (any letter) completed that gesture and stole focus. A lone Alt here never reaches VS Code.
+for (const type of ['keydown', 'keyup']) {
+    document.addEventListener(type, event => { if (event.key === 'Alt' || event.key === 'AltGraph')
+        event.stopPropagation(); });
+}
 const resizeObserver = new ResizeObserver(scheduleFit);
 resizeObserver.observe(terminals);
 const themeObserver = new MutationObserver(() => {

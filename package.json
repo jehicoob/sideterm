@@ -2,7 +2,7 @@
   "name": "sideterm-local",
   "displayName": "SideTerm Local",
   "description": "Terminales reales en pestañas dentro de una vista lateral. Uso local en WSL/Linux; sin reemplazar el panel Terminal.",
-  "version": "0.1.2",
+  "version": "0.1.5",
   "publisher": "jehicoob-local",
   "license": "MIT",
   "engines": {
@@ -23,7 +23,8 @@
     "workspace"
   ],
   "activationEvents": [
-    "onView:sideterm.sessions"
+    "onView:sideterm.sessions",
+    "onView:sideterm.drop"
   ],
   "capabilities": {
     "untrustedWorkspaces": {
@@ -52,6 +53,11 @@
           "name": "SideTerm",
           "type": "webview",
           "contextualTitle": "SideTerm Local"
+        },
+        {
+          "id": "sideterm.drop",
+          "name": "Soltar archivos",
+          "contextualTitle": "SideTerm Local"
         }
       ]
     },
@@ -59,6 +65,11 @@
       {
         "command": "sideterm.show",
         "title": "Abrir",
+        "category": "SideTerm"
+      },
+      {
+        "command": "sideterm.focus",
+        "title": "Enfocar terminal",
         "category": "SideTerm"
       },
       {
@@ -113,9 +124,26 @@
         "command": "sideterm.resetName",
         "title": "Restablecer nombre automático",
         "category": "SideTerm"
+      },
+      {
+        "command": "sideterm.insertPath",
+        "title": "Insertar ruta en SideTerm",
+        "category": "SideTerm"
       }
     ],
     "menus": {
+      "explorer/context": [
+        {
+          "command": "sideterm.insertPath",
+          "group": "6_copypath@9"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "sideterm.insertPath",
+          "when": "false"
+        }
+      ],
       "view/title": [
         {
           "command": "sideterm.new",

@@ -2,13 +2,14 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { vscode, Disposable, ExtensionContext, OutputChannel, Uri, WebviewView } from './api';
+import { vscode, DataTransfer, Disposable, ExtensionContext, OutputChannel, Uri, WebviewView } from './api';
 import { PtyBridge, HostMessage } from './bridge';
 import { cleanTitle, tabName } from './titles';
-import { resolveDropPaths, quoteShellPath } from './dropPaths';
+import { resolveDropPaths, quoteShellPath, DroppedRef, PathEnvironment } from './dropPaths';
 import { DropStore, validateDropFiles } from './dropStore';
 
 const VIEW_ID = 'sideterm.sessions';
+const DROP_VIEW_ID = 'sideterm.drop';
 const MAX_CLIPBOARD = 128 * 1024;
 const WINDOW = 131072;
 type State = 'preparing' | 'starting' | 'running' | 'exited';
@@ -150,7 +151,7 @@ export class SideTermProvider implements Disposable {
       }
     }, error => this.log.appendLine(`[vista] ${errorText(error)}`));
   }
-  private report(error: unknown): void {
+  report(error: unknown): void {
     const message = errorText(error);
     this.log.appendLine(`[error] ${message}`);
     this.post({type: 'notice', message, error: true});
@@ -329,6 +330,7 @@ export class SideTermProvider implements Disposable {
     const s = id ? this.sessions.get(id) : undefined;
     if (s) { s.customName = undefined; s.name = tabName(s); this.updateTabs(); }
   }
+  async focusTerminal(): Promise<void> { await this.show(); this.post({type: 'focus'}); }
   copy(): void { this.post({type: 'copy', id: this.activeId}); }
   clear(): void { this.post({type: 'clear', id: this.activeId}); }
   async paste(id = this.activeId, supplied?: string): Promise<void> {
@@ -347,6 +349,34 @@ export class SideTermProvider implements Disposable {
   private async clearDroppedFiles(sessionId?: string): Promise<void> {
     try {if (sessionId) await this.dropStore.clearSession(sessionId); else await this.dropStore.dispose();}
     catch {this.log.appendLine('[archivos] No se pudieron eliminar algunas copias temporales. El cierre de terminales continúa. Revisa los directorios temporales sideterm-drop- de esta sesión.');}
+  }
+  private pathEnvironment(): PathEnvironment {
+    const authorities = (vscode.workspace.workspaceFolders || []).filter(f => f.uri.scheme === 'vscode-remote').map(f => f.uri.authority || '');
+    return {wsl: vscode.env.remoteName === 'wsl' || !!process.env.WSL_DISTRO_NAME, distro: process.env.WSL_DISTRO_NAME, authorities};
+  }
+  /** Native drop zone and Explorer menu: the workbench never forwards these drags into the webview iframe. */
+  async insertPaths(refs: DroppedRef[]): Promise<void> {
+    const session = this.active();
+    if (!session || session.state !== 'running') throw new Error('Abre o selecciona una pestaña de SideTerm en ejecución antes de insertar rutas.');
+    if (!vscode.workspace.isTrusted) throw new Error('Abre un workspace de confianza para insertar rutas.');
+    if (this.dropOperation) throw new Error('Ya hay una operación de arrastre en curso.');
+    this.dropOperation = true;
+    const generation = this.generation;
+    try {
+      const paths = await resolveDropPaths(refs, this.pathEnvironment());
+      if (this.generation !== generation || this.sessions.get(session.id) !== session || session.state !== 'running')
+        throw new Error('La pestaña de destino se cerró antes de insertar las rutas. No se insertaron en otra pestaña.');
+      const text = paths.map(quoteShellPath).join(' ') + ' ';
+      if (Buffer.byteLength(text, 'utf8') > MAX_CLIPBOARD) throw new Error('El conjunto de rutas supera 128 KiB.');
+      this.view?.show(false);
+      this.post({type: 'paste', id: session.id, text}); // No CR/LF/Enter.
+    } finally { this.dropOperation = false; }
+  }
+  async onNativeDrop(dataTransfer: DataTransfer): Promise<void> {
+    const list = await dataTransfer.get('text/uri-list')?.asString();
+    const refs: DroppedRef[] = (list || '').split(/\r?\n/).map(line => line.trim())
+      .filter(line => line && !line.startsWith('#')).map(value => ({kind: 'uri', value}));
+    await this.insertPaths(refs);
   }
   private async onFileDrop(msg: Record<string, unknown>): Promise<void> {
     if (typeof msg.requestId !== 'string' || msg.requestId.length > 100) return;
@@ -367,8 +397,7 @@ export class SideTermProvider implements Disposable {
     try {
       switch (msg.action) {
         case 'paths': {
-          const authorities=(vscode.workspace.workspaceFolders||[]).filter(f=>f.uri.scheme==='vscode-remote').map(f=>f.uri.authority||'');
-          const paths=await resolveDropPaths(msg.refs,{wsl:vscode.env.remoteName==='wsl'||!!process.env.WSL_DISTRO_NAME,distro:process.env.WSL_DISTRO_NAME,authorities});
+          const paths=await resolveDropPaths(msg.refs,this.pathEnvironment());
           insert(paths);reply({ok:true});break;
         }
         case 'begin': {
@@ -454,7 +483,7 @@ export class SideTermProvider implements Disposable {
   }
   async settings(): Promise<void> { await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:jehicoob-local.sideterm-local'); }
   async diagnostics(): Promise<void> {
-    this.log.appendLine('\n=== SideTerm Local 0.1.2 ===');
+    this.log.appendLine('\n=== SideTerm Local 0.1.5 ===');
     this.log.appendLine(`VS Code: ${vscode.version}; host: ${process.platform}/${process.arch}; remoto: ${vscode.env.remoteName ?? 'no'}`);
     this.log.appendLine(`Node del extension host: ${process.version}; Python: ${this.bridge.pythonVersion || 'no iniciado'}`);
     this.log.appendLine(`Motor PTY: ${this.bridge.pid ?? 'apagado'}; pestañas: ${this.sessions.size}; historial por nueva pestaña: ${this.uiConfig().scrollback}`);
@@ -468,6 +497,7 @@ export class SideTermProvider implements Disposable {
     for (const s of this.sessions.values()) this.log.appendLine(`  ${s.name}: ${s.state}; PID ${s.pid ?? '-'}; ${s.cols}x${s.rows}; salida pendiente ${s.outstanding} B`);
     this.log.appendLine('Nombres/rutas: consulta compartida cada 1 s, suspendida con la vista oculta; mínimo de pestaña: ' + this.uiConfig().tabMinWidth + ' px.');
     this.log.appendLine('Arrastre: solo referencias explícitas; copias sin ruta requieren confirmación y bloques de 64 KiB. Sin editor activo ni contexto automático.');
+    this.log.appendLine('Desde el Explorador: vista “Soltar archivos” o menú contextual “Insertar ruta en SideTerm”, siempre en la pestaña activa.');
     this.log.appendLine('Sin telemetría, sockets de escucha ni registro de comandos. El consumo de los agentes es independiente.');
     this.log.show(true);
   }
@@ -505,12 +535,27 @@ export function activate(context: ExtensionContext): void {
   const instance = provider;
   context.subscriptions.push(instance, vscode.window.registerWebviewViewProvider(VIEW_ID, instance, {webviewOptions: {retainContextWhenHidden: true}}));
   const commands: Record<string, () => unknown> = {
-    'sideterm.show': () => instance.show(), 'sideterm.new': () => instance.newSession(),
+    'sideterm.show': () => instance.show(), 'sideterm.focus': () => instance.focusTerminal(), 'sideterm.new': () => instance.newSession(),
     'sideterm.rename': () => instance.rename(), 'sideterm.resetName': () => instance.resetName(), 'sideterm.close': () => instance.closeSession(),
     'sideterm.closeAll': () => instance.endAll(), 'sideterm.copy': () => instance.copy(),
     'sideterm.paste': () => instance.paste(), 'sideterm.clear': () => instance.clear(),
     'sideterm.diagnostics': () => instance.diagnostics(), 'sideterm.settings': () => instance.settings()
   };
   for (const [command, action] of Object.entries(commands)) context.subscriptions.push(vscode.commands.registerCommand(command, action));
+  const report = (error: unknown) => instance.report(error);
+  context.subscriptions.push(vscode.commands.registerCommand('sideterm.insertPath', (clicked?: unknown, selected?: unknown) => {
+    const uris = (Array.isArray(selected) && selected.length ? selected : clicked ? [clicked] : []) as Uri[];
+    return instance.insertPaths(uris.map(uri => ({kind: 'uri', value: uri.toString()}))).catch(report);
+  }));
+  const dropHint = 'drop-hint';
+  context.subscriptions.push(vscode.window.createTreeView<string>(DROP_VIEW_ID, {
+    treeDataProvider: {
+      getChildren: element => element ? [] : [dropHint],
+      getTreeItem: () => ({label: 'Suelta aquí archivos del Explorador', iconPath: new vscode.ThemeIcon('cloud-upload'),
+        tooltip: 'Inserta las rutas entre comillas en la pestaña activa de SideTerm, sin pulsar Enter.'})
+    },
+    dragAndDropController: {dropMimeTypes: ['text/uri-list'], dragMimeTypes: [],
+      handleDrop: (_target, dataTransfer) => instance.onNativeDrop(dataTransfer).catch(report)}
+  }));
 }
 export async function deactivate(): Promise<void> { await provider?.shutdown(); }

@@ -136,3 +136,8 @@ test('minimum tab width is configurable and clamped live', async () => {
     assert.equal(h.messages.findLast(m=>m.type==='config').config.tabMinWidth,320);
   } finally { await h.stop(); }
 });
+test('focus command reveals the view and asks the renderer to focus the active terminal', async () => {
+  const h = createHarness(); ready(h);
+  try {await session(h); await h.commands.get('sideterm.focus')(); assert.deepEqual(h.messages.at(-1), {type: 'focus'});}
+  finally {await h.stop();}
+});

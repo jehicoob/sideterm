@@ -1,14 +1,14 @@
-# SideTerm Local 0.1.2
+# SideTerm Local 0.1.5
 
 Terminales reales en pestañas en la barra lateral secundaria de VS Code. Mantiene la Terminal nativa abajo y los archivos en el editor. Extensión privada para **WSL/Linux**, no publicada en Marketplace.
 
 ## Nuevo: arrastrar archivos, sin contexto automático
 
-Cuando la webview recibe un archivo soltado, SideTerm inserta **únicamente su ruta**, entre comillas, sin pulsar Enter. Admite múltiples archivos y rutas de WSL. Si recibe un archivo del escritorio sin ruta, pide permiso para transferir **ese archivo** a una copia temporal privada en WSL, por bloques de 64 KiB. **Limitación comprobada:** en VS Code 1.140.0 sobre Windows + WSL2, el arrastre desde el Explorador de VS Code no llega a la webview de SideTerm; consulta la [guía](docs/GUIA.md#arrastrar-desde-el-explorador-de-vs-code).
+Cuando la webview recibe un archivo soltado, SideTerm inserta **únicamente su ruta**, entre comillas, sin pulsar Enter. Admite múltiples archivos y rutas de WSL. Si recibe un archivo del escritorio sin ruta, pide permiso para transferir **ese archivo** a una copia temporal privada en WSL, por bloques de 64 KiB. En VS Code 1.140.0 sobre Windows + WSL2, el arrastre desde el Explorador de VS Code no llega a la webview de la terminal. Desde 0.1.3, suelta esos archivos en la vista **Soltar archivos** del panel de SideTerm o usa **Insertar ruta en SideTerm** en el menú contextual del Explorador; consulta la [guía](docs/GUIA.md#arrastrar-desde-el-explorador-de-vs-code).
 
 No toma el archivo abierto, no escanea editores ni añade selecciones automáticamente. Las integraciones de contexto propias de OpenCode/Claude son independientes y no se modifican.
 
-**Actualizar:** guarda y cierra las sesiones → `Extensions: Install from VSIX...` → instala `sideterm-local-0.1.2.vsix` en WSL. No restablezcas las vistas ni desinstales la versión anterior.
+**Actualizar:** guarda y cierra las sesiones → `Extensions: Install from VSIX...` → instala `sideterm-local-0.1.5.vsix` en WSL. No restablezcas las vistas ni desinstales la versión anterior.
 
 [Guía de instalación, arrastre y límites](docs/GUIA.md) · [Pruebas](docs/PRUEBAS.md)
 
@@ -22,7 +22,7 @@ VS Code 1.85+, host de extensión WSL/Linux y Python 3.8+. Para instalar el VSIX
 
 ## Límites importantes
 
-Las sesiones no sobreviven a cerrar/recargar VS Code. Ctrl+V pega texto, no imágenes del portapapeles. El arrastre desde el Explorador de VS Code hacia SideTerm no funciona en el entorno comprobado; puedes escribir o pegar manualmente una ruta WSL en la terminal. No integra toda la experiencia de tareas, depuración o enlaces de la Terminal nativa. No transfiere archivos a hosts SSH ni contenedores anidados. Copias temporales: 20 MiB/archivo, 40 MiB/arrastre, 128 MiB/sesión. Un cierre forzoso puede dejar restos temporales.
+Las sesiones no sobreviven a cerrar/recargar VS Code. Ctrl+V pega texto, no imágenes del portapapeles. El arrastre desde el Explorador de VS Code directamente sobre la terminal no funciona en el entorno comprobado; usa la vista **Soltar archivos** o el menú contextual. No integra toda la experiencia de tareas, depuración o enlaces de la Terminal nativa. No transfiere archivos a hosts SSH ni contenedores anidados. Copias temporales: 20 MiB/archivo, 40 MiB/arrastre, 128 MiB/sesión. Un cierre forzoso puede dejar restos temporales.
 
 Se probó en Linux con PTYs reales y Chromium con API de VS Code simulada. La grabación y las herramientas de desarrollo en VS Code/Windows/WSL2 permitieron observar la limitación del arrastre desde el Explorador; no se validó la transferencia desde el escritorio Windows ni con cuentas autenticadas de agentes. Las pruebas automatizadas de arrastre son sintéticas.
 
