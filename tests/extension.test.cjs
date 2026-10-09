@@ -141,3 +141,12 @@ test('focus command reveals the view and asks the renderer to focus the active t
   try {await session(h); await h.commands.get('sideterm.focus')(); assert.deepEqual(h.messages.at(-1), {type: 'focus'});}
   finally {await h.stop();}
 });
+
+test('macOS starts a login shell only when shellArgs was left at its default', {skip: process.platform !== 'darwin' && 'macOS only'}, async () => {
+  const defaults = createHarness({notUserSet: ['shellArgs']}); ready(defaults);
+  try {await session(defaults); assert.deepEqual([...defaults.provider.sessions.values()][0].args, ['-l', '-i']);}
+  finally {await defaults.stop();}
+  const explicit = createHarness(); ready(explicit);
+  try {await session(explicit); assert.deepEqual([...explicit.provider.sessions.values()][0].args, ['--noprofile', '--norc', '-i']);}
+  finally {await explicit.stop();}
+});

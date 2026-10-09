@@ -71,7 +71,7 @@ export class PtyBridge extends EventEmitter {
         }
       });
       child.on('error', (err) => {
-        fail(new Error(`No se pudo iniciar Python 3: ${err.message}. Configura sideterm.pythonPath en WSL.`));
+        fail(new Error(`No se pudo iniciar Python 3: ${err.message}. Configura sideterm.pythonPath.`));
       });
       child.on('close', (code, signal) => {
         clearTimeout(timer);

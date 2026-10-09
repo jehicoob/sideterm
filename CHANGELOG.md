@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0 — Soporte para macOS
+
+- La extensión ya no se niega a ejecutarse fuera de Linux: acepta `linux` (WSL2 incluido) y `darwin`.
+- El ayudante PTY sustituye `/proc` por `libproc` (ctypes) en macOS: proceso en primer plano, carpeta actual, hijos de wrappers (`node → opencode`), argumentos acotados (`KERN_PROCARGS2`) y los miembros de la sesión, identificados por el terminal de control (`TIOCPTYGNAME`) porque macOS no expone el id de sesión.
+- Al cerrar una pestaña se señala a todos los procesos de su terminal. Una vez cerrado el maestro solo se señala a los PID registrados cuyo instante de inicio coincide, para no tocar otra pestaña si el número de tty se reutiliza.
+- Python: en macOS se prefiere Homebrew (`/opt/homebrew/bin`, `/usr/local/bin`) antes del shim `/usr/bin/python3`. Shell por defecto: `$SHELL` o `/bin/zsh`. Con `sideterm.shellArgs` sin personalizar, se usa `-l -i`.
+- El diagnóstico muestra el RSS del ayudante también en macOS (vía `ps`).
+- Pruebas: la suite de Python (28) y la de Node (49) se ejecutan ahora en macOS; las rutas de prueba se resuelven por el enlace `/var → /private/var`.
+
 ## 0.1.5 — La barra de menús ya no roba el foco tras Alt+Tab
 
 - Causa observada en VS Code 1.140.0 (Windows + WSL2): VS Code recibe las teclas reenviadas por la webview y enfoca su barra de menús tras pulsar y soltar Alt sin otra tecla. Con Alt+Tab, VS Code veía la pulsación de Alt desde SideTerm, pero la liberación ocurría en otra aplicación; al volver, la liberación de cualquier letra completaba ese gesto y el foco pasaba a `menubar-menu-button` (`onModifierKeyToggled`). Ahora la terminal no reenvía a VS Code las pulsaciones de Alt o AltGr sin otra tecla. Consecuencia: pulsar Alt solo dentro de SideTerm ya no lleva a la barra de menús; usa F10 o el ratón.

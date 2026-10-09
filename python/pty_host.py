@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SideTerm Local: single-process, POSIX PTY multiplexer (Python 3.8+).
+"""SideTerm Local: single-process, POSIX PTY multiplexer (Python 3.8+; Linux/WSL and macOS).
 
 JSON-lines over private stdio pipes. No listening sockets, threads, third-party
 Python modules or transcript files. A shared 1-second metadata check runs only
@@ -28,6 +28,10 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Deque, Dict, Optional
 
+IS_DARWIN = sys.platform == 'darwin'
+# Process inspection backend: Linux exposes /proc; macOS has no /proc, so libproc is read via ctypes.
+BACKEND = 'darwin' if IS_DARWIN else 'proc'
+
 VERSION = 1
 WINDOW = 131072
 MAX_LINE = 2 * 1024 * 1024
@@ -40,6 +44,91 @@ SHELL_NAMES = {'bash', 'zsh', 'sh', 'dash', 'fish', 'ksh', 'tcsh', 'csh', 'nu'}
 RUNTIME_NAMES = {'node', 'nodejs', 'bun', 'deno', 'python', 'python3', 'sh', 'bash', 'zsh', 'npm', 'npx', 'pnpm', 'yarn'}
 
 
+if IS_DARWIN:
+    import ctypes
+
+    PROC_ALL_PIDS, PROC_TTY_ONLY, PROC_PPID_ONLY = 1, 3, 6
+    PROC_PIDTBSDINFO, PROC_PIDVNODEPATHINFO = 3, 9
+    TIOCPTYGNAME = 0x40807453
+    SZOMB = 5
+
+    class _BsdInfo(ctypes.Structure):
+        _fields_ = [('flags', ctypes.c_uint32), ('status', ctypes.c_uint32), ('xstatus', ctypes.c_uint32),
+                    ('pid', ctypes.c_uint32), ('ppid', ctypes.c_uint32), ('uid', ctypes.c_uint32),
+                    ('gid', ctypes.c_uint32), ('ruid', ctypes.c_uint32), ('rgid', ctypes.c_uint32),
+                    ('svuid', ctypes.c_uint32), ('svgid', ctypes.c_uint32), ('rfu', ctypes.c_uint32),
+                    ('comm', ctypes.c_char * 16), ('name', ctypes.c_char * 32), ('nfiles', ctypes.c_uint32),
+                    ('pgid', ctypes.c_uint32), ('pjobc', ctypes.c_uint32), ('tdev', ctypes.c_uint32),
+                    ('tpgid', ctypes.c_uint32), ('nice', ctypes.c_int32),
+                    ('start_sec', ctypes.c_uint64), ('start_usec', ctypes.c_uint64)]
+
+    class _VnodePath(ctypes.Structure):
+        _fields_ = [('vnode_info', ctypes.c_char * 152), ('path', ctypes.c_char * 1024)]
+
+    class _VnodePathInfo(ctypes.Structure):
+        _fields_ = [('cdir', _VnodePath), ('rdir', _VnodePath)]
+
+    try:
+        _libproc = ctypes.CDLL('/usr/lib/libproc.dylib', use_errno=True)
+        _libc = ctypes.CDLL('/usr/lib/libSystem.B.dylib', use_errno=True)
+        _libproc.proc_pidinfo.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_uint64, ctypes.c_void_p, ctypes.c_int]
+        _libproc.proc_listpids.argtypes = [ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p, ctypes.c_int]
+        _libc.sysctl.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t]
+    except (OSError, AttributeError):
+        _libproc = None  # Metadata is display-only: tabs keep working with generic names.
+
+    def darwin_list(kind: int, info: int) -> list:
+        if _libproc is None:
+            return []
+        buffer = (ctypes.c_int * 1024)()
+        count = _libproc.proc_listpids(kind, info, buffer, ctypes.sizeof(buffer))
+        return [pid for pid in buffer[:max(count, 0) // ctypes.sizeof(ctypes.c_int)] if pid > 0]
+
+    def darwin_process(pid: int) -> Optional[Dict[str, Any]]:
+        if _libproc is None:
+            return None
+        info = _BsdInfo()
+        size = _libproc.proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, ctypes.byref(info), ctypes.sizeof(info))
+        if size != ctypes.sizeof(info) or info.pid != pid or info.status == SZOMB:
+            return None
+        return {'pid': pid, 'comm': (info.name or info.comm).decode('utf-8', 'replace'),
+                'pgrp': info.pgid, 'tty': info.tdev, 'start': '%d.%06d' % (info.start_sec, info.start_usec)}
+
+    def darwin_cwd(pid: int) -> Optional[str]:
+        if _libproc is None:
+            return None
+        info = _VnodePathInfo()
+        size = _libproc.proc_pidinfo(pid, PROC_PIDVNODEPATHINFO, 0, ctypes.byref(info), ctypes.sizeof(info))
+        return info.cdir.path.decode('utf-8', 'replace') if size == ctypes.sizeof(info) else None
+
+    def darwin_argv(pid: int) -> list:
+        """KERN_PROCARGS2: argc, exec path, padding NULs, argv..., then the environment (never read)."""
+        if _libproc is None:
+            return []
+        mib = (ctypes.c_int * 3)(1, 49, pid)  # CTL_KERN, KERN_PROCARGS2
+        data = ctypes.create_string_buffer(65536)
+        size = ctypes.c_size_t(ctypes.sizeof(data))
+        if _libc.sysctl(mib, 3, data, ctypes.byref(size), None, 0) != 0 or size.value < 8:
+            return []
+        raw = data.raw[:min(size.value, 8192)]
+        argc = int.from_bytes(raw[:4], sys.byteorder)
+        position = raw.find(b'\0', 4)
+        if position < 0:
+            return []
+        while position < len(raw) and raw[position] == 0:
+            position += 1
+        return [item.decode('utf-8', 'replace') for item in raw[position:].split(b'\0')[:min(argc, 32)]]
+
+    def darwin_tty(master_fd: int) -> Optional[int]:
+        """Device number of the PTY slave: the identity of this session's controlling terminal."""
+        try:
+            name = bytearray(128)
+            fcntl.ioctl(master_fd, TIOCPTYGNAME, name)
+            return os.stat(bytes(name).split(b'\0', 1)[0].decode('utf-8', 'replace')).st_rdev
+        except (OSError, ValueError):
+            return None
+
+
 def clean_label(text: str, maximum: int = 96) -> str:
     return ''.join(c for c in text if not unicodedata.category(c).startswith('C')).strip()[:maximum]
 
@@ -50,7 +139,7 @@ def known_program(entry: str) -> Optional[str]:
     name = lower.rsplit('/', 1)[-1]
     if name.endswith('.exe'):
         name = name[:-4]
-    if name in ('opencode', 'opencode.js', 'opencode.cjs', 'opencode.mjs') or name.startswith('opencode-linux-'):
+    if name in ('opencode', 'opencode.js', 'opencode.cjs', 'opencode.mjs') or name.startswith(('opencode-linux-', 'opencode-darwin-')):
         return 'OpenCode'
     if name in ('claude', 'claude.js', 'claude.cjs', 'claude.mjs'):
         return 'Claude'
@@ -64,6 +153,8 @@ def known_program(entry: str) -> Optional[str]:
 
 
 def read_process(pid: int) -> Optional[Dict[str, Any]]:
+    if BACKEND == 'darwin':
+        return darwin_process(pid)
     try:
         with open('/proc/%s/stat' % pid, encoding='utf-8', errors='replace') as file:
             raw = file.read(8192)
@@ -77,14 +168,42 @@ def read_process(pid: int) -> Optional[Dict[str, Any]]:
         return None
 
 
-def process_label(info: Dict[str, Any]) -> str:
-    argv = []
+def in_session(info: Dict[str, Any], s: 'Session') -> bool:
+    """Linux exposes the session id; macOS does not, so the PTY's controlling terminal identifies it."""
+    if info.get('sid') is not None:
+        return info['sid'] == s.pid
+    return s.tty is not None and info.get('tty') == s.tty
+
+
+def process_argv(pid: int) -> list:
+    if BACKEND == 'darwin':
+        return darwin_argv(pid)
     try:
-        with open('/proc/%s/cmdline' % info['pid'], 'rb') as file:
+        with open('/proc/%s/cmdline' % pid, 'rb') as file:
             # Bounded and ephemeral. Command arguments are NEVER sent to the UI/logs.
-            argv = file.read(8192).decode('utf-8', 'replace').split('\0')[:32]
+            return file.read(8192).decode('utf-8', 'replace').split('\0')[:32]
     except OSError:
-        pass
+        return []
+
+
+def child_pids(pid: int) -> list:
+    if BACKEND == 'darwin':
+        return darwin_list(PROC_PPID_ONLY, pid)[:16]
+    with open('/proc/%s/task/%s/children' % (pid, pid)) as file:
+        return file.read(4096).split()[:16]
+
+
+def process_cwd(pid: int) -> Optional[str]:
+    if BACKEND == 'darwin':
+        return darwin_cwd(pid)
+    try:
+        return os.readlink('/proc/%s/cwd' % pid)
+    except OSError:
+        return None
+
+
+def process_label(info: Dict[str, Any]) -> str:
+    argv = process_argv(info['pid'])  # Ephemeral: command arguments are NEVER sent to the UI/logs.
     first = argv[0] if argv else ''
     for entry in (first, info['comm']):
         known = known_program(entry)
@@ -119,16 +238,16 @@ def inspect_terminal(s: 'Session') -> Optional[Dict[str, Any]]:
 
     Resolve a bounded child tree only for wrappers, without following an agent's
     jobs: `OpenCode -> git` must keep the OpenCode name and working directory.
-    All candidates must remain in this exact Linux session and foreground group.
+    All candidates must remain in this exact session (Linux) or controlling terminal (macOS) and foreground group.
     """
     try:
         foreground = os.tcgetpgrp(s.fd)
     except OSError:
         return None
     root = read_process(foreground)
-    if root is None or root['sid'] != s.pid or root['pgrp'] != foreground:
+    if root is None or not in_session(root, s) or root['pgrp'] != foreground:
         root = read_process(s.pid)
-    if root is None or root['sid'] != s.pid:
+    if root is None or not in_session(root, s):
         return None
     selected = root
     label = process_label(root)
@@ -143,8 +262,7 @@ def inspect_terminal(s: 'Session') -> Optional[Dict[str, Any]]:
                 continue
             seen.add(parent)
             try:
-                with open('/proc/%s/task/%s/children' % (parent, parent)) as file:
-                    child_ids = file.read(4096).split()[:16]
+                child_ids = child_pids(parent)
             except OSError:
                 continue
             for value in child_ids:
@@ -155,7 +273,7 @@ def inspect_terminal(s: 'Session') -> Optional[Dict[str, Any]]:
                     child = read_process(int(value))
                 except ValueError:
                     continue
-                if child is None or child['sid'] != s.pid or child['pgrp'] != root['pgrp']:
+                if child is None or not in_session(child, s) or child['pgrp'] != root['pgrp']:
                     continue
                 child_label = process_label(child)
                 if child_label in ('OpenCode', 'Claude', 'Codex'):
@@ -165,13 +283,10 @@ def inspect_terminal(s: 'Session') -> Optional[Dict[str, Any]]:
                     queue.append(child['pid'])
     cwd = s.cwd
     for pid in (selected['pid'], root['pid'], s.pid):
-        try:
-            candidate = os.readlink('/proc/%s/cwd' % pid)
-            if candidate.startswith('/'):
-                cwd = candidate
-                break
-        except OSError:
-            continue
+        candidate = process_cwd(pid)
+        if candidate and candidate.startswith('/'):
+            cwd = candidate
+            break
     return {'cwd': cwd, 'process': label,
             'foreground': selected['pid'] != s.pid or label not in SHELL_NAMES,
             'foregroundKey': '%s:%s:%s' % (selected['pid'], selected['start'], label)}
@@ -192,6 +307,8 @@ class Session:
     cwd: str = ""
     metadata: Optional[Dict[str, Any]] = None
     pending_title: Optional[str] = None
+    tty: Optional[int] = None  # macOS: slave device number identifying the session
+    known: Dict[int, str] = field(default_factory=dict)  # macOS: pid -> start time seen on the tty
 
 
 class Host:
@@ -310,7 +427,7 @@ class Host:
                 os.chdir(cwd)
                 env = dict(os.environ)
                 env.update(TERM='xterm-256color', COLORTERM='truecolor',
-                           TERM_PROGRAM='SideTermLocal', TERM_PROGRAM_VERSION='0.1.5',
+                           TERM_PROGRAM='SideTermLocal', TERM_PROGRAM_VERSION='0.2.0',
                            SIDETERM_LOCAL='1')
                 # Python isolated mode protects this helper, not the user's shell.
                 os.execve(shell, [shell] + args, env)
@@ -318,7 +435,7 @@ class Host:
                 os.write(2, ('SideTerm: cannot start shell: %s\r\n' % exc).encode('utf-8', 'replace'))
                 os._exit(127)
         os.set_blocking(fd, False)
-        session = Session(sid, pid, fd, cwd=cwd)
+        session = Session(sid, pid, fd, cwd=cwd, tty=darwin_tty(fd) if IS_DARWIN else None)
         self.metadata_due = time.monotonic() + 0.05
         self.sessions[sid] = session
         self.watch(session)
@@ -361,9 +478,9 @@ class Host:
 
     @staticmethod
     def signal_session(s: Session, sig: int) -> None:
-        # Job control creates multiple process groups. On Linux signal all
-        # processes still belonging to this particular session, not other shells.
-        if sys.platform.startswith('linux'):
+        # Job control creates multiple process groups. Signal all processes still
+        # belonging to this particular session, not other shells.
+        if BACKEND == 'proc' and sys.platform.startswith('linux'):
             try:
                 entries = os.scandir('/proc')
                 with entries:
@@ -381,12 +498,35 @@ class Host:
             except OSError:
                 pass
         else:
+            Host.signal_tty_members(s, sig)
             try:
                 if s.fd >= 0:
                     foreground = os.tcgetpgrp(s.fd)
                     if foreground > 0:
                         os.killpg(foreground, sig)
                 os.killpg(s.pid, sig)
+            except OSError:
+                pass
+
+    @staticmethod
+    def signal_tty_members(s: Session, sig: int) -> None:
+        """macOS has no session lookup. While the master is open, the slave's tty lists every member;
+        afterwards the tty number may be reused by a new tab, so only pids recorded earlier are
+        signalled, and only while their start time still matches (guards against pid reuse)."""
+        if not IS_DARWIN:
+            return
+        if s.fd >= 0 and s.tty is not None:
+            for pid in darwin_list(PROC_TTY_ONLY, s.tty):
+                info = darwin_process(pid)
+                if info is not None and info['tty'] == s.tty:
+                    s.known[pid] = info['start']
+        for pid, start in list(s.known.items()):
+            info = darwin_process(pid)
+            if info is None or info['start'] != start:
+                s.known.pop(pid, None)
+                continue
+            try:
+                os.kill(pid, sig)
             except OSError:
                 pass
 
@@ -601,6 +741,6 @@ class Host:
 
 if __name__ == '__main__':
     if os.name != 'posix':
-        sys.stderr.write('SideTerm Local requires Linux/WSL or another POSIX host.\n')
+        sys.stderr.write('SideTerm Local requires Linux/WSL, macOS or another POSIX host.\n')
         sys.exit(2)
     Host().run()

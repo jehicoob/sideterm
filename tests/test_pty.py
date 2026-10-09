@@ -13,11 +13,15 @@ import threading
 import time
 import unittest
 
+os.environ.setdefault('BASH_SILENCE_DEPRECATION_WARNING', '1')  # macOS /bin/bash 3.2 nags about zsh
 SCRIPT = Path(__file__).resolve().parents[1] / 'python' / 'pty_host.py'
 WINDOW = 131072
 
 
 def alive(pid):
+    if sys.platform == 'darwin':  # no /proc: a zombie still answers kill(pid, 0)
+        state = subprocess.run(['ps', '-o', 'stat=', '-p', str(pid)], capture_output=True, text=True).stdout.strip()
+        return bool(state) and not state.startswith('Z')
     try:
         text = Path('/proc/%d/stat' % pid).read_text()
         return text[text.rfind(')') + 2:].split()[0] != 'Z'
@@ -95,7 +99,7 @@ class Client:
         self.proc.stdin.close(); self.proc.stdout.close(); self.proc.stderr.close()
 
 
-@unittest.skipUnless(sys.platform.startswith('linux'), 'WSL/Linux tests')
+@unittest.skipUnless(sys.platform.startswith('linux') or sys.platform == 'darwin', 'Linux/WSL and macOS tests')
 class PtyIntegration(unittest.TestCase):
     def setUp(self): self.client = Client()
     def tearDown(self): self.client.cleanup()
@@ -121,6 +125,7 @@ class PtyIntegration(unittest.TestCase):
     def test_cwd_with_spaces_and_unicode(self):
         c = self.client
         with tempfile.TemporaryDirectory(prefix='sideterm café ') as directory:
+            directory = os.path.realpath(directory)  # macOS temp dirs live behind the /var -> /private/var symlink
             c.spawn(cwd=directory)
             c.input('printf "CWD="; pwd\n')
             c.output('CWD=' + directory + '\r\n')

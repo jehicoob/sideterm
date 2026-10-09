@@ -1,4 +1,4 @@
-"""0.1.1 metadata regressions: real PTY + /proc, no real AI accounts needed."""
+"""Metadata regressions: real PTY + /proc (Linux) or libproc (macOS), no real AI accounts needed."""
 import importlib.util
 import json
 import os
@@ -24,7 +24,7 @@ class LabelPolicy(unittest.TestCase):
     def test_known_entrypoints(self):
         for entry, label in [('/bin/opencode', 'OpenCode'), ('/bin/claude', 'Claude'),
                              ('/opt/node_modules/@anthropic-ai/claude-code/cli.js', 'Claude'),
-                             ('/opt/bin/codex.js', 'Codex'), ('opencode-linux-arm64', 'OpenCode')]:
+                             ('/opt/bin/codex.js', 'Codex'), ('opencode-linux-arm64', 'OpenCode'), ('opencode-darwin-arm64', 'OpenCode')]:
             self.assertEqual(module.known_program(entry), label)
         self.assertIsNone(module.known_program('/home/Claude/readme.md'))
         self.assertIsNone(module.known_program('my-opencode-project'))
@@ -39,7 +39,8 @@ class LabelPolicy(unittest.TestCase):
         root = {'pid': 101, 'pgrp': 101, 'sid': 100, 'start': '10', 'comm': 'node'}
         child = {'pid': 102, 'pgrp': 101, 'sid': 100, 'start': '11', 'comm': 'opencode'}
         session = SimpleNamespace(pid=100, fd=8, cwd='/old')
-        with patch.object(module.os, 'tcgetpgrp', return_value=101), \
+        with patch.object(module, 'BACKEND', 'proc'), \
+             patch.object(module.os, 'tcgetpgrp', return_value=101), \
              patch.object(module, 'read_process', side_effect=lambda p: {101:root,102:child}.get(p)), \
              patch.object(module, 'process_label', side_effect=lambda p: 'node' if p['pid']==101 else 'OpenCode'), \
              patch('builtins.open', mock_open(read_data='102')), \
@@ -53,7 +54,8 @@ class LabelPolicy(unittest.TestCase):
         root = {'pid':101,'pgrp':101,'sid':100,'start':'10','comm':'node'}
         other = {'pid':102,'pgrp':101,'sid':500,'start':'11','comm':'claude'}
         session = SimpleNamespace(pid=100, fd=8, cwd='/old')
-        with patch.object(module.os,'tcgetpgrp',return_value=101), \
+        with patch.object(module,'BACKEND','proc'), \
+             patch.object(module.os,'tcgetpgrp',return_value=101), \
              patch.object(module,'read_process',side_effect=lambda p: {101:root,102:other}.get(p)), \
              patch.object(module,'process_label',return_value='node'), \
              patch('builtins.open',mock_open(read_data='102')), \
@@ -62,11 +64,11 @@ class LabelPolicy(unittest.TestCase):
         self.assertEqual(snapshot['process'],'node')
 
 
-@unittest.skipUnless(sys.platform.startswith('linux'), 'WSL/Linux only')
+@unittest.skipUnless(sys.platform.startswith('linux') or sys.platform == 'darwin', 'Linux/WSL and macOS only')
 class MetadataIntegration(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='sideterm-metadata-')
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()  # macOS: /var -> /private/var
         self.client = Client()
 
     def tearDown(self):
@@ -164,7 +166,7 @@ class MetadataIntegration(unittest.TestCase):
         self.assertNotIn('args', self.latest())
         self.assertNotIn('cmdline', self.latest())
 
-    @unittest.skipUnless(shutil.which('node') and Path('/proc/self/task/%s/children' % os.getpid()).exists(), 'Kernel does not expose /proc/.../children for real wrapper traversal; mocked branch tested separately')
+    @unittest.skipUnless(shutil.which('node') and (sys.platform == 'darwin' or Path('/proc/self/task/%s/children' % os.getpid()).exists()), 'Kernel does not expose /proc/.../children for real wrapper traversal; mocked branch tested separately')
     def test_wrapper_child_identifies_agent_without_hijacking_cwd(self):
         c = self.client; c.spawn(cwd=str(self.root))
         agent = self.fake('opencode')
@@ -175,11 +177,12 @@ class MetadataIntegration(unittest.TestCase):
         self.meta(lambda m: m.get('process') == 'OpenCode')
 
     def test_two_sessions_keep_independent_dynamic_directories(self):
-        c = self.client; c.spawn('s1',cwd=str(self.root)); c.spawn('s2',cwd='/tmp')
+        tmp = os.path.realpath('/tmp')  # macOS: /tmp -> /private/tmp
+        c = self.client; c.spawn('s1',cwd=str(self.root)); c.spawn('s2',cwd=tmp)
         self.meta(lambda m: m.get('cwd') == str(self.root),'s1')
-        self.meta(lambda m: m.get('cwd') == '/tmp','s2')
+        self.meta(lambda m: m.get('cwd') == tmp,'s2')
         c.input('cd /\n', 's1')
         self.meta(lambda m: m.get('cwd') == '/', 's1')
-        self.assertEqual(self.latest('s2')['cwd'], '/tmp')
+        self.assertEqual(self.latest('s2')['cwd'], tmp)
 
 if __name__ == '__main__': unittest.main()

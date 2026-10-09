@@ -1,8 +1,8 @@
 {
   "name": "sideterm-local",
   "displayName": "SideTerm Local",
-  "description": "Terminales reales en pestañas dentro de una vista lateral. Uso local en WSL/Linux; sin reemplazar el panel Terminal.",
-  "version": "0.1.5",
+  "description": "Terminales reales en pestañas dentro de una vista lateral. Funciona en WSL2/Linux y macOS; sin reemplazar el panel Terminal.",
+  "version": "0.2.0",
   "publisher": "jehicoob-local",
   "license": "MIT",
   "engines": {
@@ -15,6 +15,7 @@
     "terminal",
     "sidebar",
     "wsl",
+    "macos",
     "pty",
     "local"
   ],
@@ -174,7 +175,7 @@
           "type": "string",
           "default": "",
           "scope": "machine",
-          "description": "Ruta absoluta del shell en WSL/Linux. Vacío usa $SHELL; alternativa /bin/bash. No es un comando con argumentos."
+          "description": "Ruta absoluta del shell en WSL/Linux/macOS. Vacío usa $SHELL; alternativa /bin/bash (Linux) o /bin/zsh (macOS). No es un comando con argumentos."
         },
         "sideterm.shellArgs": {
           "type": "array",
@@ -185,13 +186,13 @@
             "-i"
           ],
           "scope": "machine",
-          "description": "Argumentos del shell. Se leen .bashrc/.zshrc por ser interactivo. Solo cambia las nuevas sesiones."
+          "description": "Argumentos del shell. Se leen .bashrc/.zshrc por ser interactivo. En macOS, si no lo personalizas, se usa un shell de login (-l -i) como Terminal.app. Solo cambia las nuevas sesiones."
         },
         "sideterm.pythonPath": {
           "type": "string",
           "default": "",
           "scope": "machine",
-          "description": "Ruta del ejecutable Python 3.8+ en el host remoto. Vacío prefiere /usr/bin/python3. No requiere pip ni la extensión Python."
+          "description": "Ruta del ejecutable Python 3.8+ del host de la extensión. Vacío prefiere /usr/bin/python3 (en macOS, primero Homebrew: /opt/homebrew/bin o /usr/local/bin). No requiere pip ni la extensión Python."
         },
         "sideterm.scrollback": {
           "type": "integer",

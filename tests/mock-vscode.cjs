@@ -44,7 +44,8 @@ function createHarness(options = {}) {
     workspace: {
       isTrusted: true,
       get workspaceFolders() {return roots.slice(0, answers.roots).map((file, index) => ({name: path.basename(file), uri: uri(file), index}));},
-      getConfiguration(section) {return {get(key, fallback) {return config[section]?.[key] ?? fallback;}};},
+      getConfiguration(section) {return {get(key, fallback) {return config[section]?.[key] ?? fallback;},
+        inspect(key) {const value = options.notUserSet?.includes(key) ? undefined : config[section]?.[key]; return {globalValue: value};}};},
       onDidChangeConfiguration: changed.subscribe
     },
     env: {remoteName: 'wsl', appName: 'VS Code fixture', clipboard: {async readText() {return answers.clipboard;}, async writeText(value) {answers.clipboard = value;}}}

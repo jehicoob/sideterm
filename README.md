@@ -1,6 +1,6 @@
-# SideTerm Local 0.1.5
+# SideTerm Local 0.2.0
 
-Terminales reales en pestañas en la barra lateral secundaria de VS Code. Mantiene la Terminal nativa abajo y los archivos en el editor. Extensión privada para **WSL/Linux**, no publicada en Marketplace.
+Terminales reales en pestañas en la barra lateral secundaria de VS Code. Mantiene la Terminal nativa abajo y los archivos en el editor. Extensión privada para **WSL2/Linux y macOS**, no publicada en Marketplace.
 
 ## Nuevo: arrastrar archivos, sin contexto automático
 
@@ -8,7 +8,7 @@ Cuando la webview recibe un archivo soltado, SideTerm inserta **únicamente su r
 
 No toma el archivo abierto, no escanea editores ni añade selecciones automáticamente. Las integraciones de contexto propias de OpenCode/Claude son independientes y no se modifican.
 
-**Actualizar:** guarda y cierra las sesiones → `Extensions: Install from VSIX...` → instala `sideterm-local-0.1.5.vsix` en WSL. No restablezcas las vistas ni desinstales la versión anterior.
+**Actualizar:** guarda y cierra las sesiones → `Extensions: Install from VSIX...` → instala `sideterm-local-0.2.0.vsix` (en WSL, en la ventana remota; en macOS, en la ventana local). No restablezcas las vistas ni desinstales la versión anterior.
 
 [Guía de instalación, arrastre y límites](docs/GUIA.md) · [Pruebas](docs/PRUEBAS.md)
 
@@ -18,7 +18,15 @@ Pestañas independientes, título de proceso y carpeta actual, alias manuales, a
 
 ## Requisitos
 
-VS Code 1.85+, host de extensión WSL/Linux y Python 3.8+. Para instalar el VSIX no necesitas npm, pip, compiladores ni la extensión Python de VS Code. El shell se ejecuta con los permisos de tu usuario; no uses workspaces no confiables.
+VS Code 1.85+, host de extensión WSL/Linux o macOS y Python 3.8+ (en macOS sirve el `python3` de las Command Line Tools o el de Homebrew). Para instalar el VSIX no necesitas npm, pip, compiladores ni la extensión Python de VS Code. El shell se ejecuta con los permisos de tu usuario; no uses workspaces no confiables.
+
+## macOS (desde 0.2.0)
+
+- Instala el VSIX en una ventana local de VS Code; las terminales se abren en el Mac. También funciona con Remote-SSH hacia un Mac.
+- Sin `/proc`, el ayudante lee procesos con `libproc` (vía `ctypes`, solo biblioteca estándar): nombre de la pestaña, carpeta actual y detección de OpenCode/Claude/Codex.
+- Si no cambias `sideterm.shellArgs`, el shell arranca como **login** (`-l -i`), como Terminal.app, para leer `.zprofile` (Homebrew, nvm…). Personalízalo y se respetará tal cual.
+- Copiar/pegar: `Cmd+C` / `Cmd+V`. `Option` solo no se reenvía a VS Code (evita que la barra de menús robe el foco).
+- No hay conversión de rutas de Windows: en macOS solo se aceptan archivos locales.
 
 ## Límites importantes
 

@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { execFile } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { vscode, DataTransfer, Disposable, ExtensionContext, OutputChannel, Uri, WebviewView } from './api';
 import { PtyBridge, HostMessage } from './bridge';
@@ -104,19 +105,30 @@ export class SideTermProvider implements Disposable {
   private pythonPath(): string {
     const configured = this.config().get<string>('pythonPath', '').trim();
     if (configured) return configured;
-    return executable('/usr/bin/python3') ? '/usr/bin/python3' : 'python3';
+    // macOS: prefer Homebrew; /usr/bin/python3 is a Command Line Tools shim that may prompt an install.
+    const candidates = process.platform === 'darwin'
+      ? ['/opt/homebrew/bin/python3', '/usr/local/bin/python3', '/usr/bin/python3'] : ['/usr/bin/python3'];
+    return candidates.find(executable) ?? 'python3';
   }
   private shell(): {file: string; args: string[]} {
     const configured = this.config().get<string>('shell', '').trim();
-    const candidate = configured || (process.env.SHELL && executable(process.env.SHELL) ? process.env.SHELL : '/bin/bash');
+    const fallback = process.platform === 'darwin' ? '/bin/zsh' : '/bin/bash';
+    const candidate = configured || (process.env.SHELL && executable(process.env.SHELL) ? process.env.SHELL : fallback);
     if (!path.isAbsolute(candidate) || !executable(candidate)) {
-      throw new Error(`Shell no válido: ${candidate}. Configura una ruta absoluta, por ejemplo /usr/bin/zsh, en sideterm.shell (WSL).`);
+      throw new Error(`Shell no válido: ${candidate}. Configura una ruta absoluta, por ejemplo ${process.platform === 'darwin' ? '/bin/zsh' : '/usr/bin/zsh'}, en sideterm.shell.`);
     }
     const args = this.config().get<unknown>('shellArgs', ['-i']);
     if (!Array.isArray(args) || args.length > 32 || args.some(a => typeof a !== 'string' || a.includes('\0') || a.length > 4096)) {
       throw new Error('sideterm.shellArgs debe ser una lista de argumentos de texto.');
     }
+    // macOS terminals start login shells (.zprofile, Homebrew PATH). Only when the user left the default.
+    if (process.platform === 'darwin' && !this.shellArgsCustomized()) return {file: candidate, args: ['-l', '-i']};
     return {file: candidate, args: args as string[]};
+  }
+  private shellArgsCustomized(): boolean {
+    const inspected = this.config().inspect?.<unknown>('shellArgs');
+    if (!inspected) return true; // Cannot tell: honor the effective value.
+    return [inspected.globalValue, inspected.workspaceValue, inspected.workspaceFolderValue].some(value => value !== undefined);
   }
   private uiConfig() {
     const native = vscode.workspace.getConfiguration('terminal.integrated');
@@ -128,7 +140,7 @@ export class SideTermProvider implements Disposable {
       cursorBlink: this.config().get<boolean>('cursorBlink', false),
       maxSessions: boundedNumber(this.config().get<number>('maxSessions', 6), 1, 12, 6),
       tabMinWidth: boundedNumber(this.config().get<number>('tabMinWidth', 140), 80, 320, 140),
-      environment: vscode.env.remoteName === 'wsl' ? 'WSL' : (vscode.env.remoteName || os.platform()),
+      environment: vscode.env.remoteName === 'wsl' ? 'WSL' : (vscode.env.remoteName || (os.platform() === 'darwin' ? 'macOS' : os.platform())),
       // The renderer may run on Windows while this extension host runs in WSL.
       platform: process.platform
     };
@@ -178,7 +190,7 @@ export class SideTermProvider implements Disposable {
     if (roots.length === 1) return roots[0].uri.fsPath;
     if (roots.length > 1) {
       const entries: Array<{label: string; description: string; uri?: Uri}> = roots.map(root => ({label: root.name, description: root.uri.fsPath, uri: root.uri}));
-      entries.push({label: 'Otra carpeta…', description: 'Seleccionar una carpeta de WSL/Linux'});
+      entries.push({label: 'Otra carpeta…', description: 'Seleccionar una carpeta del equipo'});
       const chosen = await vscode.window.showQuickPick(entries, {placeHolder: 'Carpeta inicial de esta terminal', ignoreFocusOut: true});
       if (!chosen) return undefined;
       if (chosen.uri) return chosen.uri.fsPath;
@@ -194,7 +206,7 @@ export class SideTermProvider implements Disposable {
     const generation = this.generation;
     try {
       if (!vscode.workspace.isTrusted) throw new Error('Abre un workspace de confianza para ejecutar terminales.');
-      if (process.platform !== 'linux') throw new Error('Esta primera versión está preparada para WSL/Linux. Abre la ventana con “WSL: Reopen Folder in WSL” e instala la extensión allí.');
+      if (process.platform !== 'linux' && process.platform !== 'darwin') throw new Error('SideTerm funciona en WSL/Linux y macOS. En Windows, abre la ventana con “WSL: Reopen Folder in WSL” e instala la extensión allí.');
       await this.ensureReady();
       const maximum = this.uiConfig().maxSessions;
       if (this.sessions.size >= maximum) throw new Error(`Límite de ${maximum} pestañas. Cierra alguna o ajusta sideterm.maxSessions.`);
@@ -402,7 +414,7 @@ export class SideTermProvider implements Disposable {
         }
         case 'begin': {
           const files=validateDropFiles(msg.files);
-          const answer=await vscode.window.showWarningMessage('El arrastre no expone la ruta original. ¿Copiar los archivos arrastrados a WSL/Linux?',
+          const answer=await vscode.window.showWarningMessage('El arrastre no expone la ruta original. ¿Copiar los archivos arrastrados a esta máquina (WSL/Linux/macOS)?',
             {modal:true,detail:`Se copiarán solo ${files.length} archivo(s) que acabas de soltar, en una carpeta temporal privada. El agente recibirá esas copias, no los originales. Se eliminarán al cerrar la pestaña. No se adjunta el archivo abierto en el editor.`},'Copiar archivos arrastrados');
           if (answer!=='Copiar archivos arrastrados') {reply({ok:true,cancelled:true});break;}
           if (!valid()) throw new Error('La terminal se cerró mientras confirmabas el arrastre.');
@@ -483,7 +495,7 @@ export class SideTermProvider implements Disposable {
   }
   async settings(): Promise<void> { await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:jehicoob-local.sideterm-local'); }
   async diagnostics(): Promise<void> {
-    this.log.appendLine('\n=== SideTerm Local 0.1.5 ===');
+    this.log.appendLine('\n=== SideTerm Local 0.2.0 ===');
     this.log.appendLine(`VS Code: ${vscode.version}; host: ${process.platform}/${process.arch}; remoto: ${vscode.env.remoteName ?? 'no'}`);
     this.log.appendLine(`Node del extension host: ${process.version}; Python: ${this.bridge.pythonVersion || 'no iniciado'}`);
     this.log.appendLine(`Motor PTY: ${this.bridge.pid ?? 'apagado'}; pestañas: ${this.sessions.size}; historial por nueva pestaña: ${this.uiConfig().scrollback}`);
@@ -493,6 +505,9 @@ export class SideTermProvider implements Disposable {
         const rss = status.match(/^VmRSS:\s+(.+)$/m)?.[1];
         if (rss) this.log.appendLine(`RSS del ayudante Python (no incluye shells, agentes ni la vista): ${rss}`);
       } catch { /* process may finish while inspecting */ }
+    } else if (this.bridge.pid && process.platform === 'darwin') {
+      const rss = await new Promise<string>(resolve => execFile('/bin/ps', ['-o', 'rss=', '-p', String(this.bridge.pid)], {timeout: 2000}, (error, out) => resolve(error ? '' : out.trim())));
+      if (/^\d+$/.test(rss)) this.log.appendLine(`RSS del ayudante Python (no incluye shells, agentes ni la vista): ${rss} kB`);
     }
     for (const s of this.sessions.values()) this.log.appendLine(`  ${s.name}: ${s.state}; PID ${s.pid ?? '-'}; ${s.cols}x${s.rows}; salida pendiente ${s.outstanding} B`);
     this.log.appendLine('Nombres/rutas: consulta compartida cada 1 s, suspendida con la vista oculta; mínimo de pestaña: ' + this.uiConfig().tabMinWidth + ' px.');

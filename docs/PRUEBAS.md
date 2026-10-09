@@ -1,4 +1,10 @@
-# SideTerm Local 0.1.5 — Pruebas y límites
+# SideTerm Local 0.2.0 — Pruebas y límites
+
+## Cambios de 0.2.0 (macOS)
+
+- Entorno: macOS 15 (Darwin 24.6, Apple Silicon), Python 3.14 y Node 24. **Python: 28 pruebas correctas, 0 omitidas**; **Node: 49 correctas**, incluida una nueva para `-l -i` por defecto en macOS. PTYs reales con `/bin/bash` 3.2 y `/bin/zsh -l -i`, recorrido real `node → opencode` y limpieza de descendientes que ignoran `SIGHUP`.
+- **No se ejecutó** en macOS: la prueba de Chromium (`tests/browser-smoke.py`, sin Playwright instalado), VS Code real en macOS ni el arrastre desde el Finder o el Explorador. La captura de `Option`/`Cmd` es la misma de 0.1.5 y sigue sin prueba automatizada.
+- Linux/WSL2: el código de `/proc` no cambió, pero **no se reejecutó** la suite en Linux tras esta modificación; las pruebas simuladas de `/proc` se fijan al backend `proc`.
 
 ## Cambios de 0.1.4 y 0.1.5
 

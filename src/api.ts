@@ -6,7 +6,10 @@ export interface Disposable { dispose(): unknown; }
 export type Event<T> = (listener: (event: T) => unknown) => Disposable;
 export interface Uri { fsPath: string; scheme: string; authority?: string; toString(): string; }
 export interface WorkspaceFolder { name: string; uri: Uri; index: number; }
-export interface Configuration { get<T>(key: string, fallback: T): T; }
+export interface Configuration {
+  get<T>(key: string, fallback: T): T;
+  inspect?<T>(key: string): {globalValue?: T; workspaceValue?: T; workspaceFolderValue?: T} | undefined;
+}
 export interface OutputChannel extends Disposable { appendLine(value: string): void; show(preserveFocus?: boolean): void; }
 export interface Webview {
   html: string;
