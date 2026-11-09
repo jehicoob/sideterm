@@ -1,4 +1,56 @@
-# SideTerm Local 0.2.0
+# SideTerm
+
+<p align="center">
+  <img src="docs/sideterm-hero.png" alt="Tres vistas de SideTerm en la barra lateral de VS Code: terminal en ejecución, pestañas dinámicas y aviso al soltar archivos" width="820">
+</p>
+
+<p align="center">
+  <img alt="Versión 0.2.0" src="https://img.shields.io/badge/versión-0.2.0-0E639C">
+  <img alt="VS Code 1.85+" src="https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC?logo=visualstudiocode&logoColor=white">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white">
+  <img alt="Python stdlib" src="https://img.shields.io/badge/Python-solo%20stdlib-3776AB?logo=python&logoColor=white">
+  <a href="LICENSE"><img alt="Licencia MIT" src="https://img.shields.io/badge/licencia-MIT-green"></a>
+</p>
+
+**Terminales reales en pestañas dentro de la barra lateral de VS Code, pensadas para trabajar con agentes de código.** Ejecuta Claude Code, Codex u OpenCode en un lateral mientras el editor y el panel Terminal quedan libres para revisar lo que el agente cambia.
+
+<details>
+<summary><strong>English summary</strong></summary>
+
+SideTerm is a VS Code extension that opens real terminals in tabs inside the secondary sidebar, without replacing the built-in Terminal panel. It is designed for **AI-assisted development**: run Claude Code, Codex, or OpenCode beside your code while the editor stays free for reviewing diffs.
+
+- Detects coding agents (Claude, Codex, OpenCode) and names each tab after the running process and its current folder.
+- Real PTYs through a dependency-free Python helper (Linux `/proc`, macOS `libproc` via `ctypes`) and an xterm.js webview. No production npm dependencies.
+- Drag-and-drop inserts only the quoted file path, never file contents or editor context, so nothing reaches an agent without your action.
+- Works on WSL2/Linux and macOS. Tested with real PTYs plus Node and Python suites; browser checks use a simulated VS Code API.
+</details>
+
+## Por qué existe
+
+Los agentes de código viven en la terminal, pero la terminal de VS Code compite por espacio con el editor y los diffs. SideTerm mueve esas sesiones a la barra lateral, con pestañas independientes que muestran qué agente corre en cada una, para tener el agente a un lado y el código delante.
+
+## Lo que lo hace interesante
+
+- **Hecho para agentes de IA:** detecta Claude Code, Codex y OpenCode en cada PTY y usa su nombre en la pestaña, junto a la carpeta actual.
+- **Contexto solo a propósito:** soltar un archivo inserta únicamente su ruta entre comillas, sin pulsar Enter. SideTerm no lee el editor activo, las selecciones ni el portapapeles; una prueba falla si lo intenta.
+- **PTYs reales sin dependencias nativas:** un ayudante Python de solo biblioteca estándar gestiona los procesos y habla con la extensión por JSON Lines sobre stdio privado, sin sockets en escucha. En macOS lee procesos con `libproc` mediante `ctypes`, sin `/proc`. Instalar el VSIX no requiere npm, pip ni compiladores.
+- **Multiplataforma con límites documentados:** WSL2/Linux y macOS, shell de login en macOS para leer `.zprofile`, y transferencia por bloques de 64 KiB con cuotas cuando el archivo viene del escritorio de Windows.
+- **Pruebas sobre comportamiento real:** suites de Python y Node con PTYs reales (`bash` y `zsh`) y comprobaciones de interfaz en Chromium. Lo que no se probó está escrito en [PRUEBAS](docs/PRUEBAS.md).
+
+**Stack:** TypeScript (strict) · VS Code Extension API y Webview · xterm.js · Python 3.8+ (stdlib, `pty`, `ctypes`) · Node test runner · `unittest`.
+
+## Arquitectura
+
+```mermaid
+flowchart LR
+    W["Webview<br/>xterm.js + pestañas"] <-->|postMessage| H["Host de la extensión<br/>TypeScript"]
+    H <-->|"JSON Lines por stdio"| P["Ayudante Python<br/>stdlib"]
+    P --> S1["PTY · zsh/bash"]
+    P --> S2["PTY · claude / codex / opencode"]
+    E["Explorador de VS Code"] -->|"text/uri-list"| H
+```
+
+## Detalles de la versión 0.2.0
 
 Terminales reales en pestañas en la barra lateral secundaria de VS Code. Mantiene la Terminal nativa abajo y los archivos en el editor. Extensión privada para **WSL2/Linux y macOS**, no publicada en Marketplace.
 
